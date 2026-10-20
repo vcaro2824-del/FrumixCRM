@@ -16,7 +16,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# Limpiar caché para evitar conflictos con estructuras viejas
+# Limpiar caché para evitar conflictos con estructuras anteriores
 st.cache_data.clear()
 
 # ---------------------------------------------------------
@@ -33,9 +33,9 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V13 LIMPIA
+# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V15 ESTABLE
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_elite_v13.db"
+DB_NAME = "frumix_enterprise_elite_v15.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -58,7 +58,7 @@ def init_db():
         )
     """)
     
-    # 2. Matriz de Precios y Catálogo Base (Con Clasificación Calidad)
+    # 2. Matriz de Precios y Catálogo Base
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS matriz_precios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,13 +121,14 @@ def init_db():
         )
     """)
 
-    # 6. Mermas e Impacto Financiero
+    # 6. Mermas e Impacto Financiero (Manual y Directo)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS mermas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            lote_id INTEGER,
+            lote TEXT,
             producto TEXT,
             cantidad_perdida REAL,
+            costo_unitario REAL,
             perdida_monetaria REAL,
             motivo TEXT,
             fecha_merma TEXT
@@ -347,7 +348,7 @@ if menu == "📊 Dashboard Gerencial & P&L":
         """)
 
 # ---------------------------------------------------------
-# 2. LISTA Y GESTIÓN DE PRODUCTOS (NUEVO MÓDULO)
+# 2. LISTA Y GESTIÓN DE PRODUCTOS
 # ---------------------------------------------------------
 elif menu == "🍓 Lista y Gestión de Productos":
     st.title("🍓 Catálogo Oficial de Productos y Clasificación de Calidad")
@@ -989,37 +990,66 @@ elif menu == "💲 Matriz Dinámica de Precios (Caja a KG)":
             st.rerun()
 
 # ---------------------------------------------------------
-# 12. CONTROL DE MERMAS & PÉRDIDAS
+# 12. CONTROL DE MERMAS & PÉRDIDAS (MANUAL Y DIRECTO)
 # ---------------------------------------------------------
 elif menu == "🗑️ Control de Mermas & Pérdidas":
     st.title("🗑️ Control de Mermas y Pérdidas Financieras")
-    conn = sqlite3.connect(DB_NAME)
-    df_inv_m = pd.read_sql("SELECT * FROM inventario", conn)
-    conn.close()
+    st.write("Registra de forma manual las mermas o pérdidas de fruta indicando el lote, producto, cantidad y costo.")
 
-    if not df_inv_m.empty:
-        with st.form("form_merma"):
-            lote_opts = [f"ID: {r['id']} | Lote: {r['lote']} - {r['producto']}" for _, r in df_inv_m.iterrows()]
-            sel_l_merma = st.selectbox("Lote Afectado:", lote_opts)
-            cant_p = st.number_input("Cajas Perdidas", min_value=0.1, value=1.0)
-            motivo_m = st.selectbox("Motivo", ["Maduración", "Golpes", "Descomposición", "Transporte"])
-            fecha_m = st.date_input("Fecha", value=date.today())
+    tab_m1, tab_m2 = st.tabs(["📋 Historial de Mermas", "➕ Registrar Merma Manual"])
 
-            if st.form_submit_button("Procesar Merma"):
-                lote_id_sel = int(sel_l_merma.split("ID: ")[1].split(" |")[0])
-                row_l = df_inv_m[df_inv_m["id"] == lote_id_sel].iloc[0]
-                perdida_dinero = cant_p * row_l["costo_unitario_caja"]
+    with tab_m1:
+        conn = sqlite3.connect(DB_NAME)
+        df_mermas_hist = pd.read_sql("SELECT * FROM mermas", conn)
+        conn.close()
 
+        if not df_mermas_hist.empty:
+            st.dataframe(df_mermas_hist, use_container_width=True)
+            total_perdida_acumulada = df_mermas_hist["perdida_monetaria"].sum()
+            st.metric("Pérdida Financiera Acumulada por Mermas", f"${total_perdida_acumulada:,.2f}")
+            
+            st.markdown("---")
+            st.subheader("🗑️ Eliminar Registro de Merma")
+            id_merma_del = st.selectbox("Seleccione ID de merma a eliminar:", df_mermas_hist["id"].tolist())
+            if st.button("🗑️ Confirmar Eliminación de Merma"):
                 conn = sqlite3.connect(DB_NAME)
                 cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO mermas (lote_id, producto, cantidad_perdida, perdida_monetaria, motivo, fecha_merma)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (lote_id_sel, row_l["producto"], cant_p, perdida_dinero, motivo_m, str(fecha_m)))
+                cursor.execute("DELETE FROM mermas WHERE id = ?", (int(id_merma_del),))
                 conn.commit()
                 conn.close()
-                st.success(f"¡Merma registrada! Pérdida: ${perdida_dinero:,.2f}")
+                st.success("¡Registro de merma eliminado!")
                 st.rerun()
+        else:
+            st.info("No hay mermas registradas todavía.")
+
+    with tab_m2:
+        with st.form("form_merma_manual"):
+            st.subheader("Formulario de Registro de Merma Manual")
+            mc1, mc2 = st.columns(2)
+            with mc1:
+                m_lote = st.text_input("Nro. de Lote Afectado (Ej. LOTE-2026-10)", value="LOTE-")
+                m_prod = st.text_input("Nombre del Producto (Ej. MANZANA GALA)")
+                m_cant = st.number_input("Cantidad de Cajas Perdidas", min_value=0.1, value=5.0)
+            with mc2:
+                m_costo = st.number_input("Costo Unitario por Caja ($)", min_value=0.0, value=50.0)
+                m_motivo = st.selectbox("Motivo de la Pérdida", ["Maduración", "Golpes / Maltrato", "Descomposición", "Transporte", "Otro"])
+                m_fecha = st.date_input("Fecha del Reporte", value=date.today())
+
+            if st.form_submit_button("💾 Guardar Merma Manual"):
+                if m_lote and m_prod and m_cant > 0:
+                    perdida_total = m_cant * m_costo
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO mermas (lote, producto, cantidad_perdida, costo_unitario, perdida_monetaria, motivo, fecha_merma)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (m_lote.upper(), m_prod.upper(), m_cant, m_costo, perdida_total, m_motivo, str(m_fecha)))
+                    conn.commit()
+                    conn.close()
+                    st.success(f"¡Merma registrada exitosamente! Pérdida calculada: ${perdida_total:,.2f}")
+                    st.rerun()
+                else:
+                    st.error("Por favor completa los campos obligatorios y verifica los valores numéricos.")
 
 # ---------------------------------------------------------
 # 13. HISTORIAL COMPLETO DE PEDIDOS
