@@ -33,9 +33,9 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V24 ESTABLE
+# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V25 ESTABLE
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_elite_v24.db"
+DB_NAME = "frumix_enterprise_elite_v25.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -297,7 +297,7 @@ modulos_disponibles = [
     "2. 📦 Inventario por Fruta y Calibre",
     "3. 🛒 Ventas & Pedidos por Calibre",
     "4. 📄 Ventas & Cotizador Pro (Con Logo/HTML)",
-    "5. 📋 Registro Manual Detallado de Pedidos",
+    "5. 📋 Registro Manual de Pedidos & Facturas (Con Stock)",
     "6. 🍓 Lista y Gestión de Productos",
     "7. 🔄 Kardex Diario (Entradas & Salidas)",
     "8. 🏢 Gestión y Edición de Clientes",
@@ -724,62 +724,114 @@ elif menu.startswith("4."):
         st.info("No hay productos en el catálogo. Agrégalos en el módulo '6. Lista y Gestión de Productos'.")
 
 # ---------------------------------------------------------
-# 5. REGISTRO MANUAL DETALLADO DE PEDIDOS
+# 5. REGISTRO MANUAL DE PEDIDOS & FACTURAS (CON STOCK Y CALIBRE)
 # ---------------------------------------------------------
 elif menu.startswith("5."):
-    st.title("📋 Registro Manual de Pedidos y Trazabilidad")
-    st.write("Ingresa de forma manual los datos completos de un pedido con asignación de dupla y monto.")
+    st.title("📋 Registro Manual de Pedidos y Facturas con Descuento de Stock")
+    st.write("Ingresa un pedido o factura de forma manual seleccionando el lote y calibre exacto. **El sistema restará automáticamente las cajas de las cámaras de frío y generará su CxC**.")
 
     df_cli_m = get_clientes_cache()
+    df_inv_m = get_inventario_cache()
+    df_inv_con_stock = df_inv_m[df_inv_m["stock_cajas"] > 0] if not df_inv_m.empty else pd.DataFrame()
+
     lista_mat_ped = df_cli_m["matriz"].tolist() if not df_cli_m.empty else ["BULLKING"]
 
-    with st.form("form_registro_pedido_manual"):
-        st.subheader("📝 Datos Generales del Pedido")
-        c_pm1, c_pm2 = st.columns(2)
-        with c_pm1:
-            nro_ped_m = st.text_input("Nro. de Pedido (Ej. PED-2026-001)", value="PED-2026-")
-            cliente_m = st.selectbox("Cliente Matriz", lista_mat_ped)
-            realizado_por_m = st.text_input("¿Quién realizó el pedido?")
-        with c_pm2:
-            atendido_por_m = st.selectbox("¿Quién despachó / Asesor?", ["Ladimir (Occidente)", "Tufic (Capital)", "Wilmer (Oriente)"])
-            recibido_por_m = st.text_input("¿Quién recibió en destino?")
-            monto_m = st.number_input("Monto Total del Pedido ($)", min_value=0.1, value=1000.0)
+    if not df_inv_con_stock.empty:
+        with st.form("form_registro_pedido_manual_stock"):
+            st.subheader("📝 Datos Generales del Pedido y Facturación")
+            c_pm1, c_pm2 = st.columns(2)
+            with c_pm1:
+                nro_ped_m = st.text_input("Nro. de Pedido (Ej. PED-2026-001)", value="PED-2026-")
+                nro_fac_m = st.text_input("Nro. de Factura Oficial (Ej. FAC-00123)", value="FAC-")
+                cliente_m = st.selectbox("Cliente Matriz", lista_mat_ped)
+                realizado_por_m = st.text_input("¿Quién realizó el pedido?")
+            with c_pm2:
+                atendido_por_m = st.selectbox("Asesor / Dupla Asignada", ["Ladimir (Occidente)", "Tufic (Capital)", "Wilmer (Oriente)"])
+                recibido_por_m = st.text_input("¿Quién recibió en destino?")
+                dias_credito = st.number_input("Días de Crédito para Factura", min_value=1, value=15)
+                fecha_ped_m = st.date_input("Fecha del Pedido / Factura", value=date.today())
 
-        st.markdown("---")
-        st.subheader("📌 Datos Importantes y Observaciones")
-        datos_imp_m = st.text_area("Notas importantes:")
-        fecha_ped_m = st.date_input("Fecha del Pedido", value=date.today())
+            st.markdown("---")
+            st.subheader("📦 Selección de Lote, Calibre y Cantidad a Descontar")
+            
+            opciones_lotes_man = []
+            for _, r in df_inv_con_stock.iterrows():
+                opciones_lotes_man.append(f"ID: {r['id']} | Lote: {r['lote']} | {r['producto']} (Calibre: {r['calibre']}) - Stock: {r['stock_cajas']} cajas")
 
-        if st.form_submit_button("💾 Guardar Pedido Manualmente"):
-            if nro_ped_m and realizado_por_m and monto_m > 0:
-                try:
-                    conn = sqlite3.connect(DB_NAME)
-                    cursor = conn.cursor()
-                    cursor.execute("BEGIN TRANSACTION;")
-                    
-                    cursor.execute("""
-                        INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', ?)
-                    """, (nro_ped_m.upper(), cliente_m, "Sucursal Principal", realizado_por_m, atendido_por_m, recibido_por_m, datos_imp_m, str(fecha_ped_m), monto_m, monto_m * 0.7, monto_m * 0.3, json.dumps([])))
-                    
-                    cursor.execute("""
-                        INSERT INTO cobranza (nro_factura, cliente, fecha_emision, fecha_vencimiento, monto_factura, monto_pagado, estatus_pago)
-                        VALUES (?, ?, ?, ?, ?, 0.0, 'Pendiente')
-                    """, (f"FAC-{nro_ped_m.upper()}", cliente_m, str(fecha_ped_m), str(fecha_ped_m + pd.Timedelta(days=15)), monto_m))
+            lote_sel_str_m = st.selectbox("Lote y Producto en Cámara", opciones_lotes_man)
+            id_inv_sel_m = int(lote_sel_str_m.split("|")[0].replace("ID:", "").strip())
+            row_lote_sel_m = df_inv_con_stock[df_inv_con_stock["id"] == id_inv_sel_m].iloc[0]
 
-                    cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ?", (str(fecha_ped_m), cliente_m))
+            st.info(f"Costo Unitario: **${row_lote_sel_m['costo_unitario_caja']:,.2f}** | Stock Disponible: **{row_lote_sel_m['stock_cajas']} cajas**")
 
-                    conn.commit()
-                    conn.close()
-                    st.success(f"¡Pedido manual {nro_ped_m} registrado!")
-                    st.rerun()
-                except Exception as e:
-                    if 'conn' in locals():
-                        conn.rollback()
+            cajas_manuales = st.number_input("Cantidad de Cajas Vendidas", min_value=1.0, max_value=float(row_lote_sel_m["stock_cajas"]), value=10.0)
+            precio_caja_manual = st.number_input("Precio de Venta por Caja ($)", min_value=0.0, value=float(row_lote_sel_m["costo_unitario_caja"] * 1.3))
+
+            datos_imp_m = st.text_area("Notas importantes / Observaciones del despacho:")
+
+            if st.form_submit_button("💾 GUARDAR PEDIDO, FACTURA Y RESTAR DEL INVENTARIO"):
+                if nro_ped_m and nro_fac_m and realizado_por_m:
+                    try:
+                        conn = sqlite3.connect(DB_NAME)
+                        cursor = conn.cursor()
+                        cursor.execute("BEGIN TRANSACTION;")
+
+                        monto_total_m = cajas_manuales * precio_caja_manual
+                        costo_total_m = cajas_manuales * row_lote_sel_m["costo_unitario_caja"]
+                        ganancia_m = monto_total_m - costo_total_m
+
+                        detalle_json_manual = json.dumps([{
+                            "inventario_id": int(row_lote_sel_m["id"]),
+                            "lote": row_lote_sel_m["lote"],
+                            "producto": row_lote_sel_m["producto"],
+                            "calibre": row_lote_sel_m["calibre"],
+                            "cajas": cajas_manuales,
+                            "costo_unitario": row_lote_sel_m["costo_unitario_caja"],
+                            "precio_caja": precio_caja_manual,
+                            "subtotal": monto_total_m
+                        }])
+
+                        # 1. Registrar Pedido
+                        cursor.execute("""
+                            INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', ?)
+                        """, (nro_ped_m.upper(), cliente_m, "Sucursal Principal", realizado_por_m, atendido_por_m, recibido_por_m, datos_imp_m, str(fecha_ped_m), monto_total_m, costo_total_m, ganancia_m, detalle_json_manual))
+
+                        # 2. Registrar Factura en Cobranza
+                        fecha_venc_m = fecha_ped_m + pd.Timedelta(days=int(dias_credito))
+                        cursor.execute("""
+                            INSERT INTO cobranza (nro_factura, cliente, fecha_emision, fecha_vencimiento, monto_factura, monto_pagado, estatus_pago)
+                            VALUES (?, ?, ?, ?, ?, 0.0, 'Pendiente')
+                        """, (nro_fac_m.upper(), cliente_m, str(fecha_ped_m), str(fecha_venc_m), monto_total_m))
+
+                        # 3. Actualizar último pedido del cliente
+                        cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ?", (str(fecha_ped_m), cliente_m))
+
+                        # 4. Restar inventario en cámaras
+                        nuevo_stk_m = max(0.0, row_lote_sel_m["stock_cajas"] - cajas_manuales)
+                        cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stk_m, id_inv_sel_m))
+
+                        # 5. Registrar salida en Kardex
+                        cursor.execute("""
+                            INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
+                            VALUES (?, ?, ?, 'SALIDA', ?, ?, ?, ?)
+                        """, (row_lote_sel_m["lote"], row_lote_sel_m["producto"], row_lote_sel_m["calibre"], cajas_manuales, f"Pedido Manual {nro_ped_m} / Factura {nro_fac_m}", str(fecha_ped_m), st.session_state.rol))
+
+                        conn.commit()
                         conn.close()
-                    st.error(f"Error al procesar el pedido: {e}")
-            else:
-                st.error("Por favor complete los campos obligatorios.")
+
+                        st.success(f"¡Pedido {nro_ped_m} y Factura {nro_fac_m} registrados con éxito! Se descontaron {cajas_manuales} cajas de inventario.")
+                        st.rerun()
+
+                    except Exception as e:
+                        if 'conn' in locals():
+                            conn.rollback()
+                            conn.close()
+                        st.error(f"Error procesando la transacción: {e}")
+                else:
+                    st.error("Por favor complete los campos obligatorios (Nro. de Pedido, Factura y Quién realizó).")
+    else:
+        st.warning("No hay existencias en inventario para procesar pedidos manuales. Ingrese lotes en el Módulo 2.")
 
 # ---------------------------------------------------------
 # 6. LISTA Y GESTIÓN DE PRODUCTOS
@@ -1015,7 +1067,7 @@ elif menu.startswith("9."):
 # ---------------------------------------------------------
 # 10. MÉTRICAS DE PEDIDOS
 # ---------------------------------------------------------
-elif "10." in menu:
+elif menu.startswith("10."):
     st.title("📈 Métricas y Registro de Pedidos")
     conn = sqlite3.connect(DB_NAME)
     df_p = pd.read_sql("SELECT * FROM pedidos", conn)
@@ -1029,7 +1081,7 @@ elif "10." in menu:
 # ---------------------------------------------------------
 # 11. EMBUDO DE VENTAS
 # ---------------------------------------------------------
-elif "11." in menu:
+elif menu.startswith("11."):
     st.title("🎯 Embudo de Ventas y Seguimiento Comercial B2B")
     conn = sqlite3.connect(DB_NAME)
     df_funnel = pd.read_sql("SELECT * FROM embudo_ventas", conn)
@@ -1043,7 +1095,7 @@ elif "11." in menu:
 # ---------------------------------------------------------
 # 12. DEPARTAMENTO DE COBRANZA & CxC
 # ---------------------------------------------------------
-elif "12." in menu:
+elif menu.startswith("12."):
     st.title("💰 Departamento de Cobranza - Cuentas por Cobrar y Facturas")
     st.write("Gestiona las facturas emitidas, revisa saldos pendientes y registra pagos.")
 
@@ -1088,7 +1140,7 @@ elif "12." in menu:
 # ---------------------------------------------------------
 # 13. LOGÍSTICA, DESPACHO & RUTAS
 # ---------------------------------------------------------
-elif "13." in menu:
+elif menu.startswith("13."):
     st.title("🚚 Logística y Estatus de Despachos")
     conn = sqlite3.connect(DB_NAME)
     df_peds = pd.read_sql("SELECT * FROM pedidos", conn)
@@ -1102,7 +1154,7 @@ elif "13." in menu:
 # ---------------------------------------------------------
 # 14. MATRIZ DINÁMICA DE PRECIOS
 # ---------------------------------------------------------
-elif "14." in menu:
+elif menu.startswith("14."):
     st.title("💲 Matriz de Precios - Conversión Caja a Kilogramo")
     df_m = get_catalogo_cache()
 
@@ -1112,7 +1164,7 @@ elif "14." in menu:
 # ---------------------------------------------------------
 # 15. CONTROL DE MERMAS & PÉRDIDAS
 # ---------------------------------------------------------
-elif "15." in menu:
+elif menu.startswith("15."):
     st.title("🗑️ Control de Mermas y Pérdidas Financieras")
     st.write("Registra pérdidas de fruta. Al guardar, **el sistema restará automáticamente las cajas de las cámaras de frío**.")
 
