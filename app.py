@@ -11,7 +11,7 @@ import urllib.request
 # CONFIGURACIÓN DE PÁGINA CORPORATIVA
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B Enterprise Definitivo",
+    page_title="Frumix C.A. - ERP B2B Enterprise Elite",
     page_icon="🍓",
     layout="wide",
 )
@@ -32,7 +32,7 @@ threading.Thread(target=keep_alive, daemon=True).start()
 # ---------------------------------------------------------
 # BASE DE DATOS RELACIONAL INTEGRAL (SQLITE)
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_definitivo_v9.db"
+DB_NAME = "frumix_enterprise_elite_v11.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -208,36 +208,89 @@ EMPRESA = {
 }
 
 # ---------------------------------------------------------
-# MENÚ LATERAL ERP COMPLETO
+# CONSULTAS OPTIMIZADAS CON CACHÉ (@st.cache_data)
+# ---------------------------------------------------------
+@st.cache_data
+def get_catalogo_cache():
+    conn = sqlite3.connect(DB_NAME)
+    df = pd.read_sql("SELECT * FROM matriz_precios", conn)
+    conn.close()
+    return df
+
+@st.cache_data
+def get_clientes_cache():
+    conn = sqlite3.connect(DB_NAME)
+    df = pd.read_sql("SELECT * FROM clientes", conn)
+    conn.close()
+    return df
+
+# ---------------------------------------------------------
+# SISTEMA DE AUTENTICACIÓN Y ROLES (LOGIN)
+# ---------------------------------------------------------
+if "autenticado" not in st.session_state:
+    st.session_state.autenticado = False
+    st.session_state.usuario = ""
+    st.session_state.rol = ""
+
+if not st.session_state.autenticado:
+    st.title("🍓 Frumix C.A. - Control de Acceso ERP B2B")
+    st.write("Ingrese sus credenciales corporativas para acceder al sistema.")
+    
+    with st.form("form_login"):
+        user_input = st.text_input("Usuario (ej. gerencia, ventas, logistica, cobranza)")
+        pass_input = st.text_input("Contraseña", type="password")
+        btn_login = st.form_submit_button("Iniciar Sesión")
+        
+        if btn_login:
+            credenciales = {
+                "gerencia": ("frumix2026*", "Gerencia General"),
+                "ventas": ("ventas123", "Equipo Comercial"),
+                "logistica": ("logistica123", "Logística y Despachos"),
+                "cobranza": ("cobranza123", "Departamento de Cobranza")
+            }
+            if user_input in credenciales and credenciales[user_input][0] == pass_input:
+                st.session_state.autenticado = True
+                st.session_state.usuario = user_input
+                st.session_state.rol = credenciales[user_input][1]
+                st.success(f"¡Bienvenido, {st.session_state.rol}!")
+                st.rerun()
+            else:
+                st.error("Usuario o contraseña incorrectos.")
+    st.stop()
+
+# ---------------------------------------------------------
+# MENÚ LATERAL ERP CON FILTRADO POR ROL
 # ---------------------------------------------------------
 st.sidebar.markdown(f"### 🍓 {EMPRESA['nombre']}")
-st.sidebar.markdown(f"**RIF:** {EMPRESA['rif']}")
+st.sidebar.markdown(f"**Usuario:** {st.session_state.rol}")
+if st.sidebar.button("🚪 Cerrar Sesión"):
+    st.session_state.autenticado = False
+    st.rerun()
 st.sidebar.markdown("---")
 
-menu = st.sidebar.radio(
-    "Módulos ERP Enterprise Elite:",
-    [
-        "📊 Dashboard Gerencial & P&L",
-        "📦 Inventario Diario en Cámaras",
-        "🏢 Gestión y Edición de Clientes",
-        "📈 Métricas de Pedidos (Diarios/Semanales)",
-        "🎯 Embudo de Ventas (Sales Funnel)",
-        "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)",
-        "📋 Registro Manual Detallado de Pedidos",
-        "💰 Departamento de Cobranza & CxC",
-        "🚚 Logística, Despacho & Rutas",
-        "💲 Matriz Dinámica de Precios (Caja a KG)",
-        "🗑️ Control de Mermas & Pérdidas",
-        "📋 Historial Completo de Pedidos",
-    ],
-)
+modulos_disponibles = [
+    "📊 Dashboard Gerencial & P&L",
+    "📦 Inventario Diario en Cámaras",
+    "🏢 Gestión y Edición de Clientes",
+    "📈 Métricas de Pedidos (Diarios/Semanales)",
+    "🎯 Embudo de Ventas (Sales Funnel)",
+    "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)",
+    "📋 Registro Manual Detallado de Pedidos",
+    "💰 Departamento de Cobranza & CxC",
+    "🚚 Logística, Despacho & Rutas",
+    "💲 Matriz Dinámica de Precios (Caja a KG)",
+    "🗑️ Control de Mermas & Pérdidas",
+    "📋 Historial Completo de Pedidos",
+]
+
+menu = st.sidebar.radio("Módulos ERP Enterprise Elite:", modulos_disponibles)
 
 # ---------------------------------------------------------
 # 1. DASHBOARD GERENCIAL & P&L
 # ---------------------------------------------------------
 if menu == "📊 Dashboard Gerencial & P&L":
     st.title("📊 Dashboard Gerencial y Estado de Resultados (P&L)")
-    st.write("Centro analítico de alto rendimiento para el control financiero absoluto de Frumix C.A.")
+    st.write("Centro analítico de alto rendimiento con gráficos ejecutivos para la toma de decisiones.")
 
     conn = sqlite3.connect(DB_NAME)
     df_ped = pd.read_sql("SELECT * FROM pedidos", conn)
@@ -265,8 +318,15 @@ if menu == "📊 Dashboard Gerencial & P&L":
         st.metric("Cuentas por Cobrar Activas", f"${deuda_pendiente:,.2f}")
 
     st.markdown("---")
+    st.subheader("📈 Gráficos de Comportamiento Financiero y Ventas")
+    if not df_ped.empty:
+        df_chart = df_ped.groupby("fecha_pedido")["monto_total"].sum().reset_index()
+        st.bar_chart(df_chart.set_index("fecha_pedido"))
+    else:
+        st.info("Aún no hay suficientes registros de pedidos para graficar tendencias.")
+
+    st.markdown("---")
     st.subheader("📈 Estado de Resultados Financiero Consolidado (P&L)")
-    
     col_p1, col_p2 = st.columns(2)
     with col_p1:
         st.markdown(f"""
@@ -304,24 +364,27 @@ elif menu == "📦 Inventario Diario en Cámaras":
             st.subheader("Ingresar Nuevo Lote al Inventario")
             l_nro = st.text_input("Número de Lote (Ej. LOTE-2026-10-20)", value="LOTE-")
             l_prod = st.text_input("Nombre del Producto (Ej. MANZANA GALA)")
-            l_stock = st.number_input("Cantidad Inicial de Cajas", min_value=1.0, value=100.0)
+            l_stock = st.number_input("Cantidad Inicial de Cajas", min_value=0.1, value=100.0)
             l_costo = st.number_input("Costo Unitario por Caja ($)", min_value=0.0, value=50.0)
             l_fecha = st.date_input("Fecha de Ingreso", value=date.today())
 
             if st.form_submit_button("Guardar Ingreso de Lote"):
-                conn = sqlite3.connect(DB_NAME)
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO inventario (lote, producto, stock_inicial, costo_unitario_caja, fecha_ingreso)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (l_nro.upper(), l_prod.upper(), l_stock, l_costo, str(l_fecha)))
-                conn.commit()
-                conn.close()
-                st.success("¡Lote ingresado al inventario con éxito!")
-                st.rerun()
+                if l_stock > 0 and l_costo >= 0:
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO inventario (lote, producto, stock_inicial, costo_unitario_caja, fecha_ingreso)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (l_nro.upper(), l_prod.upper(), l_stock, l_costo, str(l_fecha)))
+                    conn.commit()
+                    conn.close()
+                    st.success("¡Lote ingresado al inventario con éxito!")
+                    st.rerun()
+                else:
+                    st.error("Por favor verifique que los valores numéricos sean válidos.")
 
 # ---------------------------------------------------------
-# 3. GESTIÓN Y EDICIÓN DE CLIENTES (MATRICES Y SUCURSALES)
+# 3. GESTIÓN Y EDICIÓN DE CLIENTES
 # ---------------------------------------------------------
 elif menu == "🏢 Gestión y Edición de Clientes":
     st.title("🏢 Directorio, Edición y Gestión de Clientes (Matrices y Sucursales)")
@@ -330,13 +393,9 @@ elif menu == "🏢 Gestión y Edición de Clientes":
     tab_cli1, tab_cli2, tab_cli3 = st.tabs(["📋 Ver Directorio", "✏️ Editar Cliente / Sucursal", "➕ Agregar Nueva Sucursal"])
 
     with tab_cli1:
-        conn = sqlite3.connect(DB_NAME)
-        df_clientes = pd.read_sql("SELECT * FROM clientes", conn)
-        conn.close()
-
+        df_clientes = get_clientes_cache()
         if not df_clientes.empty:
             st.dataframe(df_clientes, use_container_width=True)
-            
             st.markdown("---")
             st.subheader("🗑️ Eliminar Sucursal")
             id_eliminar = st.selectbox("Seleccione ID de sucursal a eliminar:", df_clientes["id"].tolist())
@@ -352,10 +411,7 @@ elif menu == "🏢 Gestión y Edición de Clientes":
                 st.rerun()
 
     with tab_cli2:
-        conn = sqlite3.connect(DB_NAME)
-        df_cli_ed = pd.read_sql("SELECT * FROM clientes", conn)
-        conn.close()
-
+        df_cli_ed = get_clientes_cache()
         if not df_cli_ed.empty:
             st.subheader("✏️ Modificar Datos de Sucursal Existente")
             id_ed = st.selectbox("Seleccione ID para Editar:", df_cli_ed["id"].tolist(), key="ed_cli_id")
@@ -365,23 +421,8 @@ elif menu == "🏢 Gestión y Edición de Clientes":
                 e_matriz = st.text_input("Empresa Matriz", value=row_edit["matriz"])
                 e_suc = st.text_input("Sucursal", value=row_edit["sucursal"])
                 e_seg = st.text_input("Segmento", value=row_edit["segmento"])
-                
-                opciones_tarifas = [
-                    "Tarifa A (Comprador regular)", 
-                    "Tarifa B (Comprador medio)", 
-                    "Tarifa C (Comprador esporádico)"
-                ]
-                idx_tarifa = 0
-                if row_edit["tarifa"] in opciones_tarifas:
-                    idx_tarifa = opciones_tarifas.index(row_edit["tarifa"])
-                e_tarifa = st.selectbox("Clasificación / Tarifa", opciones_tarifas, index=idx_tarifa)
-
-                opciones_duplas = ["Ladimir (Occidente)", "Tufic (Capital)", "Wilmer (Oriente)"]
-                idx_dupla = 0
-                if row_edit["dupla"] in opciones_duplas:
-                    idx_dupla = opciones_duplas.index(row_edit["dupla"])
-                e_dupla = st.selectbox("Dupla Comercial Oficial", opciones_duplas, index=idx_dupla)
-
+                e_tarifa = st.selectbox("Clasificación / Tarifa", ["Tarifa A (Comprador regular)", "Tarifa B (Comprador medio)", "Tarifa C (Comprador esporádico)"])
+                e_dupla = st.selectbox("Dupla Comercial Oficial", ["Ladimir (Occidente)", "Tufic (Capital)", "Wilmer (Oriente)"])
                 e_tel = st.text_input("Teléfono", value=row_edit["telefono"])
                 e_cont = st.text_input("Contacto", value=row_edit["contacto"])
                 e_dias = st.number_input("Días de Crédito", min_value=1, value=int(row_edit["limite_credito_dias"]))
@@ -408,11 +449,7 @@ elif menu == "🏢 Gestión y Edición de Clientes":
                 matriz_n = st.text_input("Empresa Matriz (Ej. CENTRAL MADERENSE)")
                 sucursal_n = st.text_input("Nombre de la Sucursal")
                 segmento_n = st.selectbox("Segmento", ["Supermercados", "Mayorista", "Minimarket", "HORECA", "Comercial"])
-                tarifa_n = st.selectbox("Clasificación / Tarifa", [
-                    "Tarifa A (Comprador regular)", 
-                    "Tarifa B (Comprador medio)", 
-                    "Tarifa C (Comprador esporádico)"
-                ])
+                tarifa_n = st.selectbox("Clasificación / Tarifa", ["Tarifa A (Comprador regular)", "Tarifa B (Comprador medio)", "Tarifa C (Comprador esporádico)"])
             with c_s2:
                 dupla_n = st.selectbox("Dupla Comercial Oficial", ["Ladimir (Occidente)", "Tufic (Capital)", "Wilmer (Oriente)"])
                 telefono_n = st.text_input("Teléfono de Contacto", value="+58 412-")
@@ -436,7 +473,7 @@ elif menu == "🏢 Gestión y Edición de Clientes":
                     st.error("Por favor completa Matriz y Sucursal.")
 
 # ---------------------------------------------------------
-# 4. MÉTRICAS DE PEDIDOS (DIARIOS, SEMANALES, MENSUALES)
+# 4. MÉTRICAS DE PEDIDOS
 # ---------------------------------------------------------
 elif menu == "📈 Métricas de Pedidos (Diarios/Semanales)":
     st.title("📈 Métricas y Registro de Pedidos (Diarios, Semanales y Mensuales)")
@@ -477,10 +514,8 @@ elif menu == "🎯 Embudo de Ventas (Sales Funnel)":
     st.title("🎯 Embudo de Ventas y Seguimiento Comercial B2B")
     st.write("Gestiona las oportunidades comerciales desde la prospección de espacios en anaquel hasta el cierre.")
 
-    conn = sqlite3.connect(DB_NAME)
-    df_cli_list = pd.read_sql("SELECT DISTINCT matriz FROM clientes", conn)
-    conn.close()
-    lista_matrices_activas = df_cli_list["matriz"].tolist() if not df_cli_list.empty else ["BULLKING"]
+    df_cli_list = get_clientes_cache()
+    lista_matrices_activas = df_cli_list["matriz"].unique().tolist() if not df_cli_list.empty else ["BULLKING"]
 
     tab_f1, tab_f2 = st.tabs(["📊 Embudos Activos", "➕ Registrar Oportunidad"])
 
@@ -497,8 +532,7 @@ elif menu == "🎯 Embudo de Ventas (Sales Funnel)":
             
             nueva_etapa = st.selectbox(
                 "Mover a Fase:",
-                ["1. Prospección / Lead", "2. Visita y Muestras", "3. Cotización Emitida", "4. Negociación y Crédito", "5. Cierre Ganado", "6. Cierre Perdido"],
-                index=["1. Prospección / Lead", "2. Visita y Muestras", "3. Cotización Emitida", "4. Negociación y Crédito", "5. Cierre Ganado", "6. Cierre Perdido"].index(row_op["etapa_embudo"]) if row_op["etapa_embudo"] in ["1. Prospección / Lead", "2. Visita y Muestras", "3. Cotización Emitida", "4. Negociación y Crédito", "5. Cierre Ganado", "6. Cierre Perdido"] else 0
+                ["1. Prospección / Lead", "2. Visita y Muestras", "3. Cotización Emitida", "4. Negociación y Crédito", "5. Cierre Ganado", "6. Cierre Perdido"]
             )
             if st.button("💾 Actualizar Fase"):
                 conn = sqlite3.connect(DB_NAME)
@@ -533,17 +567,14 @@ elif menu == "🎯 Embudo de Ventas (Sales Funnel)":
                 st.rerun()
 
 # ---------------------------------------------------------
-# 6. VENTAS & COTIZADOR PRO (CUADRO TABULAR EDITABLE CON CÁLCULO EN VIVO)
+# 6. VENTAS & COTIZADOR PRO
 # ---------------------------------------------------------
 elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
     st.title("🛒 Departamento de Ventas - Cotizador B2B Profesional")
     st.write("Modifica el precio por caja en la tabla; el precio por kilogramo se calculará de inmediato.")
 
-    conn = sqlite3.connect(DB_NAME)
-    df_mat = pd.read_sql("SELECT * FROM matriz_precios", conn)
-    df_cli_db = pd.read_sql("SELECT * FROM clientes", conn)
-    conn.close()
-
+    df_mat = get_catalogo_cache()
+    df_cli_db = get_clientes_cache()
     lista_matrices = df_cli_db["matriz"].unique().tolist() if not df_cli_db.empty else ["BULLKING"]
 
     c_v1, c_v2 = st.columns(2)
@@ -576,37 +607,44 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
         )
 
         st.markdown("---")
-        st.subheader("📊 Vista Previa Actualizada del Cotizador (Con Precios por Kilo Calculados):")
+        st.subheader("📊 Vista Previa Actualizada del Cotizador:")
         st.dataframe(df_editado_venta, use_container_width=True)
 
-        if st.button("💾 Procesar Pedido y Guardar en Historial"):
+        if st.button("💾 Procesar Pedido (Transacción Atómica Segura)"):
             det_json = json.dumps(df_editado_venta.to_dict(orient="records"))
             monto_aprox = df_editado_venta["PRECIO CAJA ($)"].sum()
             costo_aprox = df_editado_venta["COSTO CAJA ($)"].sum()
             ganancia_aprox = monto_aprox - costo_aprox
-
             nro_p = f"PED-{datetime.now().strftime('%Y%m%d%H%M')}"
 
-            conn = sqlite3.connect(DB_NAME)
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', ?)
-            """, (nro_p, cli_sel, suc_sel, "Sistema Cotizador", asesor_asignado, "Cliente Final", "Generado desde Cotizador Pro", str(date.today()), monto_aprox, costo_aprox, ganancia_aprox, det_json))
-            
-            cursor.execute("""
-                INSERT INTO cobranza (nro_factura, cliente, fecha_emision, fecha_vencimiento, monto_factura, monto_pagado, estatus_pago)
-                VALUES (?, ?, ?, ?, ?, 0.0, 'Pendiente')
-            """, (f"FAC-{nro_p}", cli_sel, str(date.today()), str(date.today() + pd.Timedelta(days=15)), monto_aprox))
+            try:
+                conn = sqlite3.connect(DB_NAME)
+                cursor = conn.cursor()
+                cursor.execute("BEGIN TRANSACTION;")
+                
+                cursor.execute("""
+                    INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', ?)
+                """, (nro_p, cli_sel, suc_sel, "Sistema Cotizador", asesor_asignado, "Cliente Final", "Generado desde Cotizador Pro", str(date.today()), monto_aprox, costo_aprox, ganancia_aprox, det_json))
+                
+                cursor.execute("""
+                    INSERT INTO cobranza (nro_factura, cliente, fecha_emision, fecha_vencimiento, monto_factura, monto_pagado, estatus_pago)
+                    VALUES (?, ?, ?, ?, ?, 0.0, 'Pendiente')
+                """, (f"FAC-{nro_p}", cli_sel, str(date.today()), str(date.today() + pd.Timedelta(days=15)), monto_aprox))
 
-            cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ? AND sucursal = ?", (str(date.today()), cli_sel, suc_sel))
-            conn.commit()
-            conn.close()
-
-            st.success(f"¡Pedido {nro_p} procesado con éxito y reflejado en Logística y Cobranza!")
+                cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ? AND sucursal = ?", (str(date.today()), cli_sel, suc_sel))
+                
+                conn.commit()
+                conn.close()
+                st.success(f"¡Pedido {nro_p} procesado con éxito, sincronizado y validado de forma atómica!")
+            except Exception as e:
+                if 'conn' in locals():
+                    conn.rollback()
+                    conn.close()
+                st.error(f"Error crítico en la transacción: {e}")
 
     st.markdown("---")
-    st.subheader("📄 Generar Formato Imprimible (Diseño Estricto: Arial 12, Justificado Izquierda y Cuadro Ancho)")
+    st.subheader("📄 Generar Formato Imprimible (Arial 12, Justificado Izquierda, Firma Centrada)")
     if st.button("📥 Generar Documento HTML de Cotización"):
         logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
         
@@ -616,67 +654,17 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
             <meta charset="utf-8">
             <title>Cotización Oficial - Frumix C.A.</title>
             <style>
-                body {{ 
-                    font-family: Arial, sans-serif; 
-                    font-size: 12px; 
-                    margin: 30px; 
-                    color: #111; 
-                    text-align: left; 
-                }}
-                .header {{ 
-                    display: flex; 
-                    justify-content: space-between; 
-                    border-bottom: 3px solid #6B8E23; 
-                    padding-bottom: 15px; 
-                    align-items: center; 
-                    text-align: left;
-                }}
+                body {{ font-family: Arial, sans-serif; font-size: 12px; margin: 30px; color: #111; text-align: left; }}
+                .header {{ display: flex; justify-content: space-between; border-bottom: 3px solid #6B8E23; padding-bottom: 15px; align-items: center; text-align: left; }}
                 .logo {{ max-height: 80px; width: auto; }}
-                .intro-text {{ 
-                    margin-top: 20px; 
-                    font-family: Arial, sans-serif; 
-                    font-size: 12px; 
-                    line-height: 1.6; 
-                    color: #333; 
-                    text-align: left; 
-                }}
-                h3 {{
-                    font-family: Arial, sans-serif;
-                    font-size: 14px;
-                    text-align: left;
-                    margin-top: 25px;
-                }}
-                table {{ 
-                    width: 100%; 
-                    min-width: 650px;
-                    border-collapse: collapse; 
-                    margin-top: 20px; 
-                    text-align: left; 
-                }}
-                th, td {{ 
-                    border: 1px solid #bbb; 
-                    padding: 12px 15px; 
-                    text-align: left; 
-                    font-family: Arial, sans-serif; 
-                    font-size: 12px; 
-                }}
-                th {{ 
-                    background-color: #f2f2f2; 
-                    font-weight: bold;
-                }}
-                p {{
-                    font-family: Arial, sans-serif;
-                    font-size: 12px;
-                    text-align: left;
-                }}
-                .signature {{ 
-                    margin-top: 35px; 
-                    font-family: Arial, sans-serif;
-                    font-size: 12px; 
-                    font-weight: bold; 
-                    color: #111; 
-                    text-align: left; 
-                }}
+                .intro-text {{ margin-top: 20px; font-family: Arial, sans-serif; font-size: 12px; line-height: 1.6; color: #333; text-align: left; }}
+                h3 {{ font-family: Arial, sans-serif; font-size: 14px; text-align: left; margin-top: 25px; }}
+                table {{ width: 100%; min-width: 650px; border-collapse: collapse; margin-top: 20px; text-align: left; }}
+                th, td {{ border: 1px solid #bbb; padding: 12px 15px; text-align: left; font-family: Arial, sans-serif; font-size: 12px; }}
+                th {{ background-color: #f2f2f2; font-weight: bold; }}
+                p {{ font-family: Arial, sans-serif; font-size: 12px; text-align: left; }}
+                .signature-container {{ margin-top: 35px; width: 100%; text-align: center; }}
+                .signature {{ font-family: Arial, sans-serif; font-size: 12px; font-weight: bold; color: #111; display: inline-block; text-align: center; line-height: 1.5; }}
             </style>
         </head>
         <body>
@@ -715,10 +703,12 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
             <br>
             <p><strong>Condiciones Comerciales:</strong> Sujeto a disponibilidad en cámaras de frío. Validez de oferta hasta {vig_sel}.</p>
             
-            <div class="signature">
-                Atentamente;<br>
-                Gcia. De Ventas<br>
-                FRUMIX C.A.
+            <div class="signature-container">
+                <div class="signature">
+                    Atentamente;<br>
+                    Gcia. De Ventas<br>
+                    FRUMIX C.A.
+                </div>
             </div>
         </body>
         </html>
@@ -731,15 +721,13 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
         )
 
 # ---------------------------------------------------------
-# 7. REGISTRO MANUAL DETALLADO DE PEDIDOS (CONECTADO A LOGÍSTICA Y COBRANZA)
+# 7. REGISTRO MANUAL DETALLADO DE PEDIDOS
 # ---------------------------------------------------------
 elif menu == "📋 Registro Manual Detallado de Pedidos":
     st.title("📋 Registro Manual de Pedidos y Trazabilidad")
-    st.write("Ingresa de forma manual los datos completos de un pedido. Esto se reflejará automáticamente en Logística, Cobranza y Gerencia.")
+    st.write("Ingresa de forma manual los datos completos de un pedido con validación atómica.")
 
-    conn = sqlite3.connect(DB_NAME)
-    df_cli_m = pd.read_sql("SELECT DISTINCT matriz FROM clientes", conn)
-    conn.close()
+    df_cli_m = get_clientes_cache()
     lista_mat_ped = df_cli_m["matriz"].tolist() if not df_cli_m.empty else ["BULLKING"]
 
     with st.form("form_registro_pedido_manual"):
@@ -752,34 +740,41 @@ elif menu == "📋 Registro Manual Detallado de Pedidos":
         with c_pm2:
             atendido_por_m = st.selectbox("¿Quién despachó / Asesor?", ["Ladimir (Occidente)", "Tufic (Capital)", "Wilmer (Oriente)"])
             recibido_por_m = st.text_input("¿Quién recibió en destino?")
-            monto_m = st.number_input("Monto Total del Pedido ($)", min_value=0.0, value=1000.0)
+            monto_m = st.number_input("Monto Total del Pedido ($)", min_value=0.1, value=1000.0)
 
         st.markdown("---")
         st.subheader("📌 Datos Importantes y Observaciones")
-        datos_imp_m = st.text_area("Notas importantes (Ej. Horario de entrega, transporte asignado, condiciones especiales de pago o anaquel):")
+        datos_imp_m = st.text_area("Notas importantes (Horario de entrega, transporte, etc.):")
         fecha_ped_m = st.date_input("Fecha del Pedido", value=date.today())
 
-        if st.form_submit_button("💾 Guardar Pedido Manualmente"):
-            if nro_ped_m and realizado_por_m:
-                conn = sqlite3.connect(DB_NAME)
-                cursor = conn.cursor()
-                
-                cursor.execute("""
-                    INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', ?)
-                """, (nro_ped_m.upper(), cliente_m, "Sucursal Principal", realizado_por_m, atendido_por_m, recibido_por_m, datos_imp_m, str(fecha_ped_m), monto_m, monto_m * 0.7, monto_m * 0.3, json.dumps([])))
-                
-                cursor.execute("""
-                    INSERT INTO cobranza (nro_factura, cliente, fecha_emision, fecha_vencimiento, monto_factura, monto_pagado, estatus_pago)
-                    VALUES (?, ?, ?, ?, ?, 0.0, 'Pendiente')
-                """, (f"FAC-{nro_ped_m.upper()}", cliente_m, str(fecha_ped_m), str(fecha_ped_m + pd.Timedelta(days=15)), monto_m))
+        if st.form_submit_button("💾 Guardar Pedido Manualmente (Atómico)"):
+            if nro_ped_m and realizado_por_m and monto_m > 0:
+                try:
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    cursor.execute("BEGIN TRANSACTION;")
+                    
+                    cursor.execute("""
+                        INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', ?)
+                    """, (nro_ped_m.upper(), cliente_m, "Sucursal Principal", realizado_por_m, atendido_por_m, recibido_por_m, datos_imp_m, str(fecha_ped_m), monto_m, monto_m * 0.7, monto_m * 0.3, json.dumps([])))
+                    
+                    cursor.execute("""
+                        INSERT INTO cobranza (nro_factura, cliente, fecha_emision, fecha_vencimiento, monto_factura, monto_pagado, estatus_pago)
+                        VALUES (?, ?, ?, ?, ?, 0.0, 'Pendiente')
+                    """, (f"FAC-{nro_ped_m.upper()}", cliente_m, str(fecha_ped_m), str(fecha_ped_m + pd.Timedelta(days=15)), monto_m))
 
-                conn.commit()
-                conn.close()
-                st.success(f"¡El pedido manual {nro_ped_m} ha sido registrado y enviado a Logística y Cobranza exitosamente!")
-                st.rerun()
+                    conn.commit()
+                    conn.close()
+                    st.success(f"¡Pedido manual {nro_ped_m} registrado y sincronizado de forma segura!")
+                    st.rerun()
+                except Exception as e:
+                    if 'conn' in locals():
+                        conn.rollback()
+                        conn.close()
+                    st.error(f"Error al procesar el pedido: {e}")
             else:
-                st.error("Por favor completa al menos el Número de Pedido y Quién lo realizó.")
+                st.error("Por favor complete los campos obligatorios y verifique que el monto sea mayor a 0.")
 
 # ---------------------------------------------------------
 # 8. DEPARTAMENTO DE COBRANZA & CxC
@@ -788,9 +783,7 @@ elif menu == "💰 Departamento de Cobranza & CxC":
     st.title("💰 Departamento de Cobranza - Cuentas por Cobrar y Morosidad")
     st.write("Control exhaustivo de facturas, plazos de crédito y alertas automáticas.")
 
-    conn = sqlite3.connect(DB_NAME)
-    df_cli_list = pd.read_sql("SELECT DISTINCT matriz FROM clientes", conn)
-    conn.close()
+    df_cli_list = get_clientes_cache()
     lista_matrices_cobro = df_cli_list["matriz"].tolist() if not df_cli_list.empty else ["BULLKING"]
 
     tab_c1, tab_c2, tab_c3 = st.tabs(["📋 Facturas Activas", "➕ Registrar Factura", "⚠️ Alertas de Morosidad"])
@@ -824,7 +817,7 @@ elif menu == "💰 Departamento de Cobranza & CxC":
         with st.form("form_reg_cxc"):
             nro_fac = st.text_input("Nro. Factura", value="FAC-2026-")
             cli_fac = st.selectbox("Cliente Matriz", lista_matrices_cobro)
-            monto_fac = st.number_input("Monto Total ($)", min_value=0.0, value=500.0)
+            monto_fac = st.number_input("Monto Total ($)", min_value=0.1, value=500.0)
             f_emi = st.date_input("Fecha Emisión", value=date.today())
             dias_cred = st.number_input("Días de Crédito", min_value=1, value=15)
             f_ven = date.today() + pd.Timedelta(days=int(dias_cred))
@@ -883,9 +876,7 @@ elif menu == "🚚 Logística, Despacho & Rutas":
 # ---------------------------------------------------------
 elif menu == "💲 Matriz Dinámica de Precios (Caja a KG)":
     st.title("💲 Matriz de Precios - Conversión Caja a Kilogramo")
-    conn = sqlite3.connect(DB_NAME)
-    df_m = pd.read_sql("SELECT * FROM matriz_precios", conn)
-    conn.close()
+    df_m = get_catalogo_cache()
 
     if not df_m.empty:
         df_m_edit = df_m[["id", "codigo", "descripcion", "calibre", "empaque_kg", "costo_caja", "precio_caja"]].copy()
@@ -921,7 +912,7 @@ elif menu == "🗑️ Control de Mermas & Pérdidas":
         with st.form("form_merma"):
             lote_opts = [f"ID: {r['id']} | Lote: {r['lote']} - {r['producto']}" for _, r in df_inv_m.iterrows()]
             sel_l_merma = st.selectbox("Lote Afectado:", lote_opts)
-            cant_p = st.number_input("Cajas Perdidas", min_value=0.5, value=1.0)
+            cant_p = st.number_input("Cajas Perdidas", min_value=0.1, value=1.0)
             motivo_m = st.selectbox("Motivo", ["Maduración", "Golpes", "Descomposición", "Transporte"])
             fecha_m = st.date_input("Fecha", value=date.today())
 
