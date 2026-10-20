@@ -33,9 +33,9 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V23 ESTABLE
+# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V24 ESTABLE
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_elite_v23.db"
+DB_NAME = "frumix_enterprise_elite_v24.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -58,7 +58,7 @@ def init_db():
         )
     """)
     
-    # 2. Catálogo Base (Control manual absoluto por Deiglis)
+    # 2. Catálogo Base
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS matriz_precios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -317,7 +317,7 @@ menu = st.sidebar.radio("Módulos ERP Enterprise Elite:", modulos_disponibles)
 # ---------------------------------------------------------
 # 1. DASHBOARD GERENCIAL & P&L
 # ---------------------------------------------------------
-if "1." in menu:
+if menu.startswith("1."):
     st.title("📊 Dashboard Gerencial y Estado de Resultados (P&L)")
     st.write("Centro analítico de alto rendimiento con alertas automáticas detalladas de facturas vencidas.")
 
@@ -400,7 +400,7 @@ if "1." in menu:
 # ---------------------------------------------------------
 # 2. INVENTARIO POR FRUTA Y CALIBRE
 # ---------------------------------------------------------
-elif "2." in menu:
+elif menu.startswith("2."):
     st.title("📦 Control de Inventario por Frutas y Calibres en Existencia")
     st.write("Agrega los calibres que vayan ingresando para cada fruta. Las existencias se actualizarán al vender o registrar mermas.")
 
@@ -478,9 +478,9 @@ elif "2." in menu:
                         st.rerun()
 
 # ---------------------------------------------------------
-# 3. VENTAS & PEDIDOS POR CALIBRE (RESTOCK AUTOMÁTICO DE INVENTARIO)
+# 3. VENTAS & PEDIDOS POR CALIBRE
 # ---------------------------------------------------------
-elif "3." in menu:
+elif menu.startswith("3."):
     st.title("🛒 Generador de Pedidos y Ventas por Calibre")
     st.write("Selecciona la fruta y el calibre en existencia. El stock se restará automáticamente del inventario al procesar el pedido.")
 
@@ -581,7 +581,6 @@ elif "3." in menu:
 
                     cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ? AND sucursal = ?", (str(date.today()), cli_sel, suc_sel))
 
-                    # RESTAR DEL INVENTARIO Y REGISTRAR EN KARDEX SALIDA
                     for item in st.session_state.carrito_pedido:
                         cursor.execute("SELECT stock_cajas FROM inventario WHERE id = ?", (item["inventario_id"],))
                         stk_act = cursor.fetchone()[0]
@@ -598,7 +597,7 @@ elif "3." in menu:
                     conn.close()
 
                     st.session_state.carrito_pedido = []
-                    st.success(f"¡Pedido {nro_p} procesado con éxito! Las existencias fueron descontadas de las cámaras de frío y se generó su factura CxC.")
+                    st.success(f"¡Pedido {nro_p} procesado con éxito! Las existencias fueron descontadas y se generó su factura CxC.")
                     st.rerun()
 
                 except Exception as e:
@@ -610,9 +609,9 @@ elif "3." in menu:
         st.warning("No hay productos con existencias en cámaras de frío. Ingrese lotes en el módulo de Inventario.")
 
 # ---------------------------------------------------------
-# 4. VENTAS & COTIZADOR PRO (CON LOGO Y DESCARGA HTML)
+# 4. VENTAS & COTIZADOR PRO
 # ---------------------------------------------------------
-elif "4." in menu:
+elif menu.startswith("4."):
     st.title("📄 Cotizador B2B Profesional con Formato Imprimible")
     st.write("Genera listas de precios oficiales y exporta el documento HTML institucional con logo para clientes.")
 
@@ -727,7 +726,7 @@ elif "4." in menu:
 # ---------------------------------------------------------
 # 5. REGISTRO MANUAL DETALLADO DE PEDIDOS
 # ---------------------------------------------------------
-elif "5." in menu:
+elif menu.startswith("5."):
     st.title("📋 Registro Manual de Pedidos y Trazabilidad")
     st.write("Ingresa de forma manual los datos completos de un pedido con asignación de dupla y monto.")
 
@@ -785,7 +784,7 @@ elif "5." in menu:
 # ---------------------------------------------------------
 # 6. LISTA Y GESTIÓN DE PRODUCTOS
 # ---------------------------------------------------------
-elif "6." in menu:
+elif menu.startswith("6."):
     st.title("🍓 Catálogo Oficial de Productos - Configuración de Calidad y Calibre")
     st.write("Aquí creas y defines tus frutas, indicando manualmente si es **Premium**, **Con detalle** o **A granel** y su calibre base.")
 
@@ -880,9 +879,9 @@ elif "6." in menu:
                     st.error("Por favor complete código y descripción.")
 
 # ---------------------------------------------------------
-# 7. KARDEX DIARIO (ENTRADAS & SALIDAS)
+# 7. KARDEX DIARIO
 # ---------------------------------------------------------
-elif "7." in menu:
+elif menu.startswith("7."):
     st.title("🔄 Kardex Diario - Control de Entradas y Salidas de Inventario")
     conn = sqlite3.connect(DB_NAME)
     df_kardex = pd.read_sql("SELECT * FROM movimientos_inventario", conn)
@@ -896,7 +895,7 @@ elif "7." in menu:
 # ---------------------------------------------------------
 # 8. GESTIÓN Y EDICIÓN DE CLIENTES
 # ---------------------------------------------------------
-elif "8." in menu:
+elif menu.startswith("8."):
     st.title("🏢 Directorio, Edición y Gestión de Clientes (Matrices y Sucursales)")
     st.write("Agrega nuevos clientes, edita sus datos en tiempo real o elimina sucursales.")
 
@@ -997,7 +996,7 @@ elif "8." in menu:
 # ---------------------------------------------------------
 # 9. HISTORIAL DE COMPRAS DE CLIENTES
 # ---------------------------------------------------------
-elif "9." in menu:
+elif menu.startswith("9."):
     st.title("🛍️ Historial de Compras y Trazabilidad por Cliente")
     df_cli_h = get_clientes_cache()
     lista_mat_hist = df_cli_h["matriz"].unique().tolist() if not df_cli_h.empty else ["BULLKING"]
@@ -1111,7 +1110,7 @@ elif "14." in menu:
         st.dataframe(df_m, use_container_width=True)
 
 # ---------------------------------------------------------
-# 15. CONTROL DE MERMAS & PÉRDIDAS (RESTA AUTOMÁTICA DE INVENTARIO)
+# 15. CONTROL DE MERMAS & PÉRDIDAS
 # ---------------------------------------------------------
 elif "15." in menu:
     st.title("🗑️ Control de Mermas y Pérdidas Financieras")
@@ -1137,18 +1136,16 @@ elif "15." in menu:
             with st.form("form_registrar_merma_stock"):
                 st.subheader("Seleccionar Lote y Calibre a Dar de Baja por Merma")
                 
-                # Crear opciones descriptivas para el selectbox
                 opciones_lotes = []
                 for _, r in df_inv_con_stock.iterrows():
                     opciones_lotes.append(f"ID: {r['id']} | Lote: {r['lote']} | {r['producto']} (Calibre: {r['calibre']}) - Stock: {r['stock_cajas']} cajas")
 
                 lote_sel_str = st.selectbox("Lote y Producto en Cámara", opciones_lotes)
                 
-                # Extraer el ID del inventario seleccionado
                 id_inv_sel = int(lote_sel_str.split("|")[0].replace("ID:", "").strip())
                 row_lote_sel = df_inv_con_stock[df_inv_con_stock["id"] == id_inv_sel].iloc[0]
 
-                st.info( ആരാy if False else f"Costo Unitario en Sistema: **${row_lote_sel['costo_unitario_caja']:,.2f} por caja** | Stock actual: **{row_lote_sel['stock_cajas']} cajas**")
+                st.info(f"Costo Unitario en Sistema: **${row_lote_sel['costo_unitario_caja']:,.2f} por caja** | Stock actual: **{row_lote_sel['stock_cajas']} cajas**")
 
                 cajas_perdidas = st.number_input("Cantidad de Cajas a Dar de Baja (Merma)", min_value=1.0, max_value=float(row_lote_sel["stock_cajas"]), value=5.0)
                 motivo_merma = st.text_input("Motivo de la Merma (Ej. Fruta madura, golpeada, daño por transporte)")
@@ -1162,17 +1159,14 @@ elif "15." in menu:
 
                         perdida_monetaria = cajas_perdidas * row_lote_sel["costo_unitario_caja"]
 
-                        # 1. Registrar en tabla mermas
                         cursor.execute("""
                             INSERT INTO mermas (lote, producto, calibre, cantidad_perdida, costo_unitario, perdida_monetaria, motivo, fecha_merma)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         """, (row_lote_sel["lote"], row_lote_sel["producto"], row_lote_sel["calibre"], cajas_perdidas, row_lote_sel["costo_unitario_caja"], perdida_monetaria, motivo_merma, str(fecha_m)))
 
-                        # 2. Restar del stock de inventario
                         nuevo_stock_inv = max(0.0, row_lote_sel["stock_cajas"] - cajas_perdidas)
                         cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stock_inv, id_inv_sel))
 
-                        # 3. Registrar salida en Kardex
                         cursor.execute("""
                             INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
                             VALUES (?, ?, ?, 'SALIDA', ?, ?, ?, ?)
@@ -1195,7 +1189,7 @@ elif "15." in menu:
 # ---------------------------------------------------------
 # 16. REGISTRO DE DEVOLUCIONES Y MERMAS
 # ---------------------------------------------------------
-elif "16." in menu:
+elif menu.startswith("16."):
     st.title("↩️ Módulo de Devoluciones de Clientes Vinculadas a Mermas")
     conn = sqlite3.connect(DB_NAME)
     df_dev_hist = pd.read_sql("SELECT * FROM devoluciones", conn)
@@ -1209,7 +1203,7 @@ elif "16." in menu:
 # ---------------------------------------------------------
 # 17. HISTORIAL COMPLETO DE PEDIDOS
 # ---------------------------------------------------------
-elif "17." in menu:
+elif menu.startswith("17."):
     st.title("📋 Historial y Fidelidad Histórica de Pedidos B2B")
     conn = sqlite3.connect(DB_NAME)
     df_peds = pd.read_sql("SELECT * FROM pedidos", conn)
