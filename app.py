@@ -32,7 +32,7 @@ threading.Thread(target=keep_alive, daemon=True).start()
 # ---------------------------------------------------------
 # BASE DE DATOS RELACIONAL INTEGRAL (SQLITE)
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_elite_v11.db"
+DB_NAME = "frumix_enterprise_elite_v12.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -55,7 +55,7 @@ def init_db():
         )
     """)
     
-    # 2. Matriz de Precios y Catálogo Base
+    # 2. Matriz de Precios y Catálogo Base (Con Clasificación Calidad)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS matriz_precios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,6 +63,7 @@ def init_db():
             barra TEXT,
             descripcion TEXT,
             calibre TEXT,
+            clasificacion_calidad TEXT,
             empaque_kg REAL,
             costo_caja REAL,
             precio_caja REAL,
@@ -150,20 +151,20 @@ def init_db():
     cursor.execute("SELECT COUNT(*) FROM matriz_precios")
     if cursor.fetchone()[0] == 0:
         catalogo_inicial = [
-            ("759101", "759101", "MANZANA GALA", "80/88", 19.0, 50.0, 68.0, 3.58, 26.5),
-            ("759102", "759102", "MANZANA ROJA", "100/110", 19.0, 60.0, 80.0, 4.21, 25.0),
-            ("759103", "759103", "MANZANA VERDE", "70/80", 19.0, 62.0, 84.0, 4.42, 26.2),
-            ("759105", "759105", "MANZANA GALA GRANEL", "Granel", 23.0, 45.0, 65.0, 2.83, 30.7),
-            ("759201", "759201", "PERA VERDE", "90/100", 18.0, 48.0, 65.0, 3.61, 26.1),
-            ("759203", "759203", "PERA FORELLE EN BANDEJA", "Selección", 9.0, 60.0, 75.0, 8.33, 20.0),
-            ("759301", "759301", "UVA RED GLOBE", "Extra", 8.2, 70.0, 95.0, 11.58, 26.3),
-            ("759502", "759502", "CEREZA", "Jumbo", 2.5, 30.0, 45.0, 18.00, 33.3),
-            ("759503", "759503", "ARANDANOS", "Premium", 0.125, 55.0, 70.0, 560.00, 21.4),
-            ("759602", "759602", "PITAHAYA ROJA", "Grande", 1.0, 15.0, 22.0, 22.00, 31.8),
+            ("759101", "759101", "MANZANA GALA", "80/88", "Premium", 19.0, 50.0, 68.0, 3.58, 26.5),
+            ("759102", "759102", "MANZANA ROJA", "100/110", "Con detalle", 19.0, 60.0, 80.0, 4.21, 25.0),
+            ("759103", "759103", "MANZANA VERDE", "70/80", "Premium", 19.0, 62.0, 84.0, 4.42, 26.2),
+            ("759105", "759105", "MANZANA GALA GRANEL", "Granel", "A granel", 23.0, 45.0, 65.0, 2.83, 30.7),
+            ("759201", "759201", "PERA VERDE", "90/100", "Premium", 18.0, 48.0, 65.0, 3.61, 26.1),
+            ("759203", "759203", "PERA FORELLE EN BANDEJA", "Selección", "Con detalle", 9.0, 60.0, 75.0, 8.33, 20.0),
+            ("759301", "759301", "UVA RED GLOBE", "Extra", "Premium", 8.2, 70.0, 95.0, 11.58, 26.3),
+            ("759502", "759502", "CEREZA", "Jumbo", "Premium", 2.5, 30.0, 45.0, 18.00, 33.3),
+            ("759503", "759503", "ARANDANOS", "Premium", "Premium", 0.125, 55.0, 70.0, 560.00, 21.4),
+            ("759602", "759602", "PITAHAYA ROJA", "Grande", "Con detalle", 1.0, 15.0, 22.0, 22.00, 31.8),
         ]
         cursor.executemany("""
-            INSERT INTO matriz_precios (codigo, barra, descripcion, calibre, empaque_kg, costo_caja, precio_caja, precio_kg, margen_pct)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO matriz_precios (codigo, barra, descripcion, calibre, clasificacion_calidad, empaque_kg, costo_caja, precio_caja, precio_kg, margen_pct)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, catalogo_inicial)
         conn.commit()
 
@@ -270,6 +271,7 @@ st.sidebar.markdown("---")
 
 modulos_disponibles = [
     "📊 Dashboard Gerencial & P&L",
+    "🍓 Lista y Gestión de Productos",
     "📦 Inventario Diario en Cámaras",
     "🏢 Gestión y Edición de Clientes",
     "📈 Métricas de Pedidos (Diarios/Semanales)",
@@ -342,7 +344,90 @@ if menu == "📊 Dashboard Gerencial & P&L":
         """)
 
 # ---------------------------------------------------------
-# 2. INVENTARIO DIARIO EN CÁMARAS DE FRÍO
+# 2. LISTA Y GESTIÓN DE PRODUCTOS (NUEVO MÓDULO)
+# ---------------------------------------------------------
+elif menu == "🍓 Lista y Gestión de Productos":
+    st.title("🍓 Catálogo Oficial de Productos y Clasificación de Calidad")
+    st.write("Administra el catálogo de frutas con sus calidades: **Premium**, **Con detalle** o **A granel**.")
+
+    tab_prod1, tab_prod2 = st.tabs(["📋 Catálogo Actual y Edición", "➕ Registrar Nuevo Producto"])
+
+    with tab_prod1:
+        df_cat = get_catalogo_cache()
+        if not df_cat.empty:
+            st.subheader("Edición General del Catálogo")
+            df_edit_cat = st.data_editor(
+                df_cat[["id", "codigo", "descripcion", "calibre", "clasificacion_calidad", "empaque_kg", "costo_caja", "precio_caja"]],
+                use_container_width=True,
+                key="editor_cat_gral"
+            )
+            
+            if st.button("💾 Guardar Cambios en el Catálogo"):
+                conn = sqlite3.connect(DB_NAME)
+                cursor = conn.cursor()
+                for _, r in df_edit_cat.iterrows():
+                    p_kg = round(r["precio_caja"] / r["empaque_kg"], 2) if r["empaque_kg"] > 0 else 0.0
+                    mrg = round(((r["precio_caja"] - r["costo_caja"]) / r["precio_caja"] * 100), 1) if r["precio_caja"] > 0 else 0.0
+                    cursor.execute("""
+                        UPDATE matriz_precios 
+                        SET codigo = ?, descripcion = ?, calibre = ?, clasificacion_calidad = ?, empaque_kg = ?, costo_caja = ?, precio_caja = ?, precio_kg = ?, margen_pct = ?
+                        WHERE id = ?
+                    """, (r["codigo"], r["descripcion"].upper(), r["calibre"], r["clasificacion_calidad"], r["empaque_kg"], r["costo_caja"], r["precio_caja"], p_kg, mrg, int(r["id"])))
+                conn.commit()
+                conn.close()
+                st.success("¡Catálogo de productos actualizado con éxito!")
+                st.rerun()
+
+            st.markdown("---")
+            st.subheader("🗑️ Eliminar Producto del Catálogo")
+            prod_id_del = st.selectbox("Seleccione ID de producto a eliminar:", df_cat["id"].tolist())
+            row_prod_del = df_cat[df_cat["id"] == prod_id_del].iloc[0]
+            st.warning(f"Va a eliminar el producto **{row_prod_del['descripcion']}** (Código: {row_prod_del['codigo']}).")
+            if st.button("🗑️ Confirmar Eliminación de Producto"):
+                conn = sqlite3.connect(DB_NAME)
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM matriz_precios WHERE id = ?", (int(prod_id_del),))
+                conn.commit()
+                conn.close()
+                st.success("¡Producto eliminado!")
+                st.rerun()
+        else:
+            st.info("No hay productos en el catálogo.")
+
+    with tab_prod2:
+        with st.form("form_nuevo_producto"):
+            st.subheader("Agregar Nuevo Fruto / Producto al Sistema")
+            cp1, cp2 = st.columns(2)
+            with cp1:
+                n_cod = st.text_input("Código del Producto (Ej. 759106)")
+                n_desc = st.text_input("Descripción (Ej. MANZANA RED DELICIOUS)")
+                n_calibre = st.text_input("Calibre (Ej. 80/88 o Extra)")
+                n_calidad = st.selectbox("Clasificación de Calidad", ["Premium", "Con detalle", "A granel"])
+            with cp2:
+                n_emp = st.number_input("Empaque en Kilogramos por Caja", min_value=0.01, value=19.0)
+                n_costo = st.number_input("Costo Unitario por Caja ($)", min_value=0.0, value=50.0)
+                n_precio = st.number_input("Precio de Venta por Caja ($)", min_value=0.0, value=70.0)
+
+            if st.form_submit_button("Guardar Nuevo Producto"):
+                if n_cod and n_desc:
+                    p_kg_n = round(n_precio / n_emp, 2) if n_emp > 0 else 0.0
+                    mrg_n = round(((n_precio - n_costo) / n_precio * 100), 1) if n_precio > 0 else 0.0
+                    
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO matriz_precios (codigo, barra, descripcion, calibre, clasificacion_calidad, empaque_kg, costo_caja, precio_caja, precio_kg, margen_pct)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (n_cod, n_cod, n_desc.upper(), n_calibre, n_calidad, n_emp, n_costo, n_precio, p_kg_n, mrg_n))
+                    conn.commit()
+                    conn.close()
+                    st.success("¡Nuevo producto agregado al catálogo con éxito!")
+                    st.rerun()
+                else:
+                    st.error("Por favor complete al menos el código y la descripción.")
+
+# ---------------------------------------------------------
+# 3. INVENTARIO DIARIO EN CÁMARAS DE FRÍO
 # ---------------------------------------------------------
 elif menu == "📦 Inventario Diario en Cámaras":
     st.title("📦 Control de Inventario Diario en Cámaras de Frío")
@@ -384,7 +469,7 @@ elif menu == "📦 Inventario Diario en Cámaras":
                     st.error("Por favor verifique que los valores numéricos sean válidos.")
 
 # ---------------------------------------------------------
-# 3. GESTIÓN Y EDICIÓN DE CLIENTES
+# 4. GESTIÓN Y EDICIÓN DE CLIENTES
 # ---------------------------------------------------------
 elif menu == "🏢 Gestión y Edición de Clientes":
     st.title("🏢 Directorio, Edición y Gestión de Clientes (Matrices y Sucursales)")
@@ -473,7 +558,7 @@ elif menu == "🏢 Gestión y Edición de Clientes":
                     st.error("Por favor completa Matriz y Sucursal.")
 
 # ---------------------------------------------------------
-# 4. MÉTRICAS DE PEDIDOS
+# 5. MÉTRICAS DE PEDIDOS
 # ---------------------------------------------------------
 elif menu == "📈 Métricas de Pedidos (Diarios/Semanales)":
     st.title("📈 Métricas y Registro de Pedidos (Diarios, Semanales y Mensuales)")
@@ -508,7 +593,7 @@ elif menu == "📈 Métricas de Pedidos (Diarios/Semanales)":
         st.info("No hay pedidos registrados en el sistema todavía.")
 
 # ---------------------------------------------------------
-# 5. EMBUDO DE VENTAS (SALES FUNNEL)
+# 6. EMBUDO DE VENTAS (SALES FUNNEL)
 # ---------------------------------------------------------
 elif menu == "🎯 Embudo de Ventas (Sales Funnel)":
     st.title("🎯 Embudo de Ventas y Seguimiento Comercial B2B")
@@ -567,7 +652,7 @@ elif menu == "🎯 Embudo de Ventas (Sales Funnel)":
                 st.rerun()
 
 # ---------------------------------------------------------
-# 6. VENTAS & COTIZADOR PRO
+# 7. VENTAS & COTIZADOR PRO
 # ---------------------------------------------------------
 elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
     st.title("🛒 Departamento de Ventas - Cotizador B2B Profesional")
@@ -586,7 +671,7 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
         cli_row_sel = df_cli_db[(df_cli_db["matriz"] == cli_sel) & (df_cli_db["sucursal"] == suc_sel)]
         asesor_asignado = cli_row_sel.iloc[0]["dupla"] if not cli_row_sel.empty else "Tufic (Capital)"
         st.info(f"👤 **Asesor / Dupla Asignada:** {asesor_asignado}")
-        vig_sel = st.date_input("Validez de Precios:", value=date.today() + pd.Timedelta(days=7))
+        vig_sel = st.date_input("Validez de precios:", value=date.today() + pd.Timedelta(days=7))
 
     if not cli_row_sel.empty:
         l_cred = cli_row_sel.iloc[0]["limite_credito_dolares"]
@@ -597,8 +682,8 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
     st.subheader("📋 Cuadro de Precios (Edita la columna 'PRECIO CAJA ($)'):")
 
     if not df_mat.empty:
-        df_editor_v = df_mat[["codigo", "barra", "descripcion", "calibre", "empaque_kg", "costo_caja", "precio_caja"]].copy()
-        df_editor_v.columns = ["CÓDIGO", "BARRA", "DESCRIPCIÓN", "CALIBRE", "EMPAQUE/KG", "COSTO CAJA ($)", "PRECIO CAJA ($)"]
+        df_editor_v = df_mat[["codigo", "barra", "descripcion", "calibre", "clasificacion_calidad", "empaque_kg", "costo_caja", "precio_caja"]].copy()
+        df_editor_v.columns = ["CÓDIGO", "BARRA", "DESCRIPCIÓN", "CALIBRE", "CALIDAD", "EMPAQUE/KG", "COSTO CAJA ($)", "PRECIO CAJA ($)"]
 
         df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra")
 
@@ -691,13 +776,14 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
                     <th>Código</th>
                     <th>Descripción</th>
                     <th>Calibre</th>
+                    <th>Calidad</th>
                     <th>Empaque (Kg)</th>
                     <th>Precio Caja ($)</th>
                     <th>Precio por KG ($)</th>
                 </tr>
         """
         for _, r in df_editado_venta.iterrows():
-            html_doc += f"<tr><td>{r['CÓDIGO']}</td><td>{r['DESCRIPCIÓN']}</td><td>{r['CALIBRE']}</td><td>{r['EMPAQUE/KG']}</td><td>${r['PRECIO CAJA ($)']:.2f}</td><td>${r['PRECIO POR KG ($)']:.2f}</td></tr>"
+            html_doc += f"<tr><td>{r['CÓDIGO']}</td><td>{r['DESCRIPCIÓN']}</td><td>{r['CALIBRE']}</td><td>{r['CALIDAD']}</td><td>{r['EMPAQUE/KG']}</td><td>${r['PRECIO CAJA ($)']:.2f}</td><td>${r['PRECIO POR KG ($)']:.2f}</td></tr>"
         html_doc += f"""
             </table>
             <br>
@@ -721,7 +807,7 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
         )
 
 # ---------------------------------------------------------
-# 7. REGISTRO MANUAL DETALLADO DE PEDIDOS
+# 8. REGISTRO MANUAL DETALLADO DE PEDIDOS
 # ---------------------------------------------------------
 elif menu == "📋 Registro Manual Detallado de Pedidos":
     st.title("📋 Registro Manual de Pedidos y Trazabilidad")
@@ -777,7 +863,7 @@ elif menu == "📋 Registro Manual Detallado de Pedidos":
                 st.error("Por favor complete los campos obligatorios y verifique que el monto sea mayor a 0.")
 
 # ---------------------------------------------------------
-# 8. DEPARTAMENTO DE COBRANZA & CxC
+# 9. DEPARTAMENTO DE COBRANZA & CxC
 # ---------------------------------------------------------
 elif menu == "💰 Departamento de Cobranza & CxC":
     st.title("💰 Departamento de Cobranza - Cuentas por Cobrar y Morosidad")
@@ -848,7 +934,7 @@ elif menu == "💰 Departamento de Cobranza & CxC":
                 st.success("✅ No hay facturas vencidas.")
 
 # ---------------------------------------------------------
-# 9. LOGÍSTICA, DESPACHO & RUTAS
+# 10. LOGÍSTICA, DESPACHO & RUTAS
 # ---------------------------------------------------------
 elif menu == "🚚 Logística, Despacho & Rutas":
     st.title("🚚 Logística y Estatus de Despachos")
@@ -872,15 +958,15 @@ elif menu == "🚚 Logística, Despacho & Rutas":
         st.info("No hay pedidos para despachar.")
 
 # ---------------------------------------------------------
-# 10. MATRIZ DINÁMICA DE PRECIOS
+# 11. MATRIZ DINÁMICA DE PRECIOS
 # ---------------------------------------------------------
 elif menu == "💲 Matriz Dinámica de Precios (Caja a KG)":
     st.title("💲 Matriz de Precios - Conversión Caja a Kilogramo")
     df_m = get_catalogo_cache()
 
     if not df_m.empty:
-        df_m_edit = df_m[["id", "codigo", "descripcion", "calibre", "empaque_kg", "costo_caja", "precio_caja"]].copy()
-        df_m_edit.columns = ["ID", "CÓDIGO", "DESCRIPCIÓN", "CALIBRE", "EMPAQUE/KG", "COSTO CAJA ($)", "PRECIO CAJA ($)"]
+        df_m_edit = df_m[["id", "codigo", "descripcion", "calibre", "clasificacion_calidad", "empaque_kg", "costo_caja", "precio_caja"]].copy()
+        df_m_edit.columns = ["ID", "CÓDIGO", "DESCRIPCIÓN", "CALIBRE", "CALIDAD", "EMPAQUE/KG", "COSTO CAJA ($)", "PRECIO CAJA ($)"]
         df_resultado = st.data_editor(df_m_edit, use_container_width=True, key="matriz_def")
 
         df_resultado["PRECIO POR KG ($)"] = df_resultado.apply(lambda r: round(r["PRECIO CAJA ($)"] / r["EMPAQUE/KG"], 2) if r["EMPAQUE/KG"] > 0 else 0.0, axis=1)
@@ -900,7 +986,7 @@ elif menu == "💲 Matriz Dinámica de Precios (Caja a KG)":
             st.rerun()
 
 # ---------------------------------------------------------
-# 11. CONTROL DE MERMAS & PÉRDIDAS
+# 12. CONTROL DE MERMAS & PÉRDIDAS
 # ---------------------------------------------------------
 elif menu == "🗑️ Control de Mermas & Pérdidas":
     st.title("🗑️ Control de Mermas y Pérdidas Financieras")
@@ -933,7 +1019,7 @@ elif menu == "🗑️ Control de Mermas & Pérdidas":
                 st.rerun()
 
 # ---------------------------------------------------------
-# 12. HISTORIAL COMPLETO DE PEDIDOS
+# 13. HISTORIAL COMPLETO DE PEDIDOS
 # ---------------------------------------------------------
 elif menu == "📋 Historial Completo de Pedidos":
     st.title("📋 Historial y Fidelidad Histórica de Pedidos B2B")
