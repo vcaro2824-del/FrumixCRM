@@ -16,7 +16,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# Limpiar caché para evitar conflictos con estructuras anteriores
+# Limpieza total de caché en arranque
 st.cache_data.clear()
 
 # ---------------------------------------------------------
@@ -41,7 +41,7 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    # 1. Clientes (Matrices y Sucursales)
+    # 1. Clientes
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,7 +58,7 @@ def init_db():
         )
     """)
     
-    # 2. Matriz de Precios y Catálogo Base
+    # 2. Catálogo Base
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS matriz_precios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,7 +75,7 @@ def init_db():
         )
     """)
     
-    # 3. Pedidos y Despachos Comerciales
+    # 3. Pedidos
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS pedidos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -95,7 +95,7 @@ def init_db():
         )
     """)
 
-    # 4. Cobranza y Cuentas por Cobrar (CxC)
+    # 4. Cobranza
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS cobranza (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,7 +109,7 @@ def init_db():
         )
     """)
 
-    # 5. Inventario Diario por Lotes en Cámaras de Frío (Con Calibre)
+    # 5. Inventario Diario por Lotes y Calibre
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS inventario (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -122,7 +122,7 @@ def init_db():
         )
     """)
 
-    # 5.1. Movimientos de Inventario (Kardex Entradas/Salidas)
+    # 5.1. Kardex Movimientos
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS movimientos_inventario (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -137,7 +137,7 @@ def init_db():
         )
     """)
 
-    # 6. Mermas e Impacto Financiero (Manual y Directo)
+    # 6. Mermas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS mermas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -152,7 +152,7 @@ def init_db():
         )
     """)
 
-    # 6.1. Devoluciones de Clientes (Vinculadas a Mermas)
+    # 6.1. Devoluciones
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS devoluciones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -168,7 +168,7 @@ def init_db():
         )
     """)
 
-    # 7. Embudo de Ventas (Sales Funnel)
+    # 7. Embudo de Ventas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS embudo_ventas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -483,7 +483,7 @@ elif menu == "📦 Inventario Diario en Cámaras (Por Calibre)":
             st.dataframe(df_inv, use_container_width=True)
             
             st.markdown("---")
-            st.subheader("🗑️ Eliminar o Ajustar Lote de Inventario")
+            st.subheader("🗑️ Eliminar Lote de Inventario")
             id_inv_del = st.selectbox("Seleccione ID de lote a eliminar:", df_inv["id"].tolist())
             if st.button("🗑️ Eliminar Lote"):
                 conn = sqlite3.connect(DB_NAME)
@@ -510,13 +510,11 @@ elif menu == "📦 Inventario Diario en Cámaras (Por Calibre)":
                 if l_stock > 0 and l_costo >= 0 and l_calibre:
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
-                    # 1. Insertar en inventario
                     cursor.execute("""
                         INSERT INTO inventario (lote, producto, calibre, stock_inicial, costo_unitario_caja, fecha_ingreso)
                         VALUES (?, ?, ?, ?, ?, ?)
                     """, (l_nro.upper(), l_prod.upper(), l_calibre.upper(), l_stock, l_costo, str(l_fecha)))
                     
-                    # 2. Registrar en kardex de movimientos (Entrada)
                     cursor.execute("""
                         INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
                         VALUES (?, ?, ?, 'ENTRADA', ?, 'Ingreso inicial de lote', ?, ?)
@@ -524,7 +522,7 @@ elif menu == "📦 Inventario Diario en Cámaras (Por Calibre)":
 
                     conn.commit()
                     conn.close()
-                    st.success("¡Lote y calibre ingresados al inventario y al kardex con éxito!")
+                    st.success("¡Lote y calibre ingresados al inventario y kardex con éxito!")
                     st.rerun()
                 else:
                     st.error("Por favor complete todos los campos, incluyendo el calibre.")
@@ -534,7 +532,7 @@ elif menu == "📦 Inventario Diario en Cámaras (Por Calibre)":
 # ---------------------------------------------------------
 elif menu == "🔄 Kardex Diario (Entradas & Salidas)":
     st.title("🔄 Kardex Diario - Control de Entradas y Salidas de Inventario")
-    st.write("Registra de forma manual entradas adicionales o salidas por despachos/ajustes para actualizar el inventario.")
+    st.write("Registra entradas adicionales o salidas por despachos/ajustes para actualizar el inventario.")
 
     tab_k1, tab_k2 = st.tabs(["📋 Historial de Movimientos", "➕ Registrar Movimiento de Inventario"])
 
@@ -555,7 +553,7 @@ elif menu == "🔄 Kardex Diario (Entradas & Salidas)":
             mk_calibre = st.text_input("Calibre (Ej. 80/88)")
             mk_tipo = st.selectbox("Tipo de Movimiento", ["ENTRADA (Suma al Stock)", "SALIDA (Resta del Stock)"])
             mk_cant = st.number_input("Cantidad de Cajas", min_value=0.1, value=10.0)
-            mk_motivo = st.text_input("Motivo del Movimiento (Ej. Ajuste físico, Despacho especial, Recepción)")
+            mk_motivo = st.text_input("Motivo (Ej. Ajuste físico, Despacho especial, Recepción)")
             mk_fecha = st.date_input("Fecha del Movimiento", value=date.today())
 
             if st.form_submit_button("💾 Guardar y Actualizar Stock"):
@@ -565,13 +563,11 @@ elif menu == "🔄 Kardex Diario (Entradas & Salidas)":
                     
                     tipo_db = "ENTRADA" if "ENTRADA" in mk_tipo else "SALIDA"
                     
-                    # Registrar movimiento
                     cursor.execute("""
                         INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """, (mk_lote.upper(), mk_prod.upper(), mk_calibre.upper(), tipo_db, mk_cant, mk_motivo, str(mk_fecha), st.session_state.rol))
 
-                    # Actualizar stock en la tabla inventario si el lote existe
                     cursor.execute("SELECT id, stock_inicial FROM inventario WHERE lote = ? AND producto = ?", (mk_lote.upper(), mk_prod.upper()))
                     row_inv = cursor.fetchone()
                     if row_inv:
@@ -581,7 +577,7 @@ elif menu == "🔄 Kardex Diario (Entradas & Salidas)":
 
                     conn.commit()
                     conn.close()
-                    st.success(f"¡Movimiento de {tipo_db} registrado y stock actualizado con éxito!")
+                    st.success(f"¡Movimiento de {tipo_db} registrado y stock actualizado!")
                     st.rerun()
                 else:
                     st.error("Por favor complete los datos obligatorios.")
@@ -676,16 +672,16 @@ elif menu == "🏢 Gestión y Edición de Clientes":
                     st.error("Por favor completa Matriz y Sucursal.")
 
 # ---------------------------------------------------------
-# 6. HISTORIAL DE COMPRAS DE LOS CLIENTES
+# 6. HISTORIAL DE COMPRAS DE CLIENTES
 # ---------------------------------------------------------
 elif menu == "🛍️ Historial de Compras de Clientes":
     st.title("🛍️ Historial de Compras y Trazabilidad por Cliente")
-    st.write("Consulta todos los pedidos y volúmenes facturados a una empresa matriz o sucursal específica.")
+    st.write("Consulta los pedidos y volúmenes facturados a una empresa matriz o sucursal específica.")
 
     df_cli_h = get_clientes_cache()
     lista_mat_hist = df_cli_h["matriz"].unique().tolist() if not df_cli_h.empty else ["BULLKING"]
 
-    cliente_sel_hist = st.selectbox("Seleccione Empresa Matriz para ver su Historial de Compras:", lista_mat_hist)
+    cliente_sel_hist = st.selectbox("Seleccione Empresa Matriz:", lista_mat_hist)
 
     conn = sqlite3.connect(DB_NAME)
     df_ped_hist = pd.read_sql("SELECT * FROM pedidos WHERE cliente = ?", conn, params=(cliente_sel_hist,))
@@ -743,7 +739,7 @@ elif menu == "📈 Métricas de Pedidos (Diarios/Semanales)":
         st.info("No hay pedidos registrados en el sistema todavía.")
 
 # ---------------------------------------------------------
-# 8. EMBUDO DE VENTAS (SALES FUNNEL)
+# 8. EMBUDO DE VENTAS
 # ---------------------------------------------------------
 elif menu == "🎯 Embudo de Ventas (Sales Funnel)":
     st.title("🎯 Embudo de Ventas y Seguimiento Comercial B2B")
@@ -871,7 +867,7 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
                 
                 conn.commit()
                 conn.close()
-                st.success(f"¡Pedido {nro_p} procesado con éxito, sincronizado y validado de forma atómica!")
+                st.success(f"¡Pedido {nro_p} procesado con éxito!")
             except Exception as e:
                 if 'conn' in locals():
                     conn.rollback()
@@ -879,7 +875,7 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
                 st.error(f"Error crítico en la transacción: {e}")
 
     st.markdown("---")
-    st.subheader("📄 Generar Formato Imprimible (Arial 12, Justificado Izquierda, Firma Centrada)")
+    st.subheader("📄 Generar Formato Imprimible")
     if st.button("📥 Generar Documento HTML de Cotización"):
         logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
         
@@ -961,7 +957,7 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
 # ---------------------------------------------------------
 elif menu == "📋 Registro Manual Detallado de Pedidos":
     st.title("📋 Registro Manual de Pedidos y Trazabilidad")
-    st.write("Ingresa de forma manual los datos completos de un pedido con validación atómica.")
+    st.write("Ingresa de forma manual los datos completos de un pedido.")
 
     df_cli_m = get_clientes_cache()
     lista_mat_ped = df_cli_m["matriz"].tolist() if not df_cli_m.empty else ["BULLKING"]
@@ -972,7 +968,7 @@ elif menu == "📋 Registro Manual Detallado de Pedidos":
         with c_pm1:
             nro_ped_m = st.text_input("Nro. de Pedido (Ej. PED-2026-001)", value="PED-2026-")
             cliente_m = st.selectbox("Cliente Matriz", lista_mat_ped)
-            realizado_por_m = st.text_input("¿Quién realizó el pedido? (Ej. Comprador / Encargado)")
+            realizado_por_m = st.text_input("¿Quién realizó el pedido?")
         with c_pm2:
             atendido_por_m = st.selectbox("¿Quién despachó / Asesor?", ["Ladimir (Occidente)", "Tufic (Capital)", "Wilmer (Oriente)"])
             recibido_por_m = st.text_input("¿Quién recibió en destino?")
@@ -980,10 +976,10 @@ elif menu == "📋 Registro Manual Detallado de Pedidos":
 
         st.markdown("---")
         st.subheader("📌 Datos Importantes y Observaciones")
-        datos_imp_m = st.text_area("Notas importantes (Horario de entrega, transporte, etc.):")
+        datos_imp_m = st.text_area("Notas importantes:")
         fecha_ped_m = st.date_input("Fecha del Pedido", value=date.today())
 
-        if st.form_submit_button("💾 Guardar Pedido Manualmente (Atómico)"):
+        if st.form_submit_button("💾 Guardar Pedido Manualmente"):
             if nro_ped_m and realizado_por_m and monto_m > 0:
                 try:
                     conn = sqlite3.connect(DB_NAME)
@@ -1002,7 +998,7 @@ elif menu == "📋 Registro Manual Detallado de Pedidos":
 
                     conn.commit()
                     conn.close()
-                    st.success(f"¡Pedido manual {nro_ped_m} registrado y sincronizado de forma segura!")
+                    st.success(f"¡Pedido manual {nro_ped_m} registrado!")
                     st.rerun()
                 except Exception as e:
                     if 'conn' in locals():
@@ -1010,7 +1006,7 @@ elif menu == "📋 Registro Manual Detallado de Pedidos":
                         conn.close()
                     st.error(f"Error al procesar el pedido: {e}")
             else:
-                st.error("Por favor complete los campos obligatorios y verifique que el monto sea mayor a 0.")
+                st.error("Por favor complete los campos obligatorios.")
 
 # ---------------------------------------------------------
 # 11. DEPARTAMENTO DE COBRANZA & CxC
@@ -1196,7 +1192,7 @@ elif menu == "🗑️ Control de Mermas & Pérdidas":
                     st.success(f"¡Merma registrada exitosamente! Pérdida calculada: ${perdida_total:,.2f}")
                     st.rerun()
                 else:
-                    st.error("Por favor completa los campos obligatorios y verifica los valores numéricos.")
+                    st.error("Por favor completa los campos obligatorios.")
 
 # ---------------------------------------------------------
 # 15. REGISTRO DE DEVOLUCIONES Y MERMAS
@@ -1245,13 +1241,11 @@ elif menu == "↩️ Registro de Devoluciones y Mermas":
                     
                     destino_txt = "Enviado a Mermas" if enviar_merma else "Reingreso a Cámaras"
                     
-                    # 1. Registrar devolución
                     cursor.execute("""
                         INSERT INTO devoluciones (nro_pedido, cliente, sucursal, producto, calibre, cantidad_devuelta, motivo_devolucion, destino_merma, fecha_devolucion)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (nro_ped_dev.upper(), cli_dev, suc_dev.upper(), prod_dev.upper(), cal_dev.upper(), cant_dev, motivo_dev, destino_txt, str(fecha_dev)))
 
-                    # 2. Si se marcó enviar a mermas, insertar directo en la tabla mermas
                     if enviar_merma:
                         perdida_dev = cant_dev * costo_dev
                         cursor.execute("""
@@ -1279,6 +1273,3 @@ elif menu == "📋 Historial Completo de Pedidos":
         st.dataframe(df_peds, use_container_width=True)
     else:
         st.info("No hay pedidos registrados todavía.")
-
-¡Pégalo en tu GitHub y tu app correrá impecable!
-Sigamos con esta conversacion
