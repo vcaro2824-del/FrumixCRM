@@ -16,6 +16,9 @@ st.set_page_config(
     layout="wide",
 )
 
+# Limpiar caché para evitar conflictos con estructuras viejas
+st.cache_data.clear()
+
 # ---------------------------------------------------------
 # SISTEMA KEEP-ALIVE BLINDADO PARA CLOUD 24/7
 # ---------------------------------------------------------
@@ -30,9 +33,9 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE)
+# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V13 LIMPIA
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_elite_v12.db"
+DB_NAME = "frumix_enterprise_elite_v13.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -55,7 +58,7 @@ def init_db():
         )
     """)
     
-    # 2. Matriz de Precios y Catálogo Base
+    # 2. Matriz de Precios y Catálogo Base (Con Clasificación Calidad)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS matriz_precios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,12 +74,6 @@ def init_db():
             margen_pct REAL
         )
     """)
-    
-    # Asegurar compatibilidad si la tabla ya existía sin la columna de calidad
-    try:
-        cursor.execute("ALTER TABLE matriz_precios ADD COLUMN clasificacion_calidad TEXT DEFAULT 'Premium'")
-    except:
-        pass
     
     # 3. Pedidos y Despachos Comerciales
     cursor.execute("""
