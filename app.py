@@ -55,7 +55,7 @@ def init_db():
         )
     """)
     
-    # 2. Matriz de Precios y Catálogo Base (Con Clasificación Calidad)
+    # 2. Matriz de Precios y Catálogo Base
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS matriz_precios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,6 +71,12 @@ def init_db():
             margen_pct REAL
         )
     """)
+    
+    # Asegurar compatibilidad si la tabla ya existía sin la columna de calidad
+    try:
+        cursor.execute("ALTER TABLE matriz_precios ADD COLUMN clasificacion_calidad TEXT DEFAULT 'Premium'")
+    except:
+        pass
     
     # 3. Pedidos y Despachos Comerciales
     cursor.execute("""
