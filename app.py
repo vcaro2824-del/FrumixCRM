@@ -33,9 +33,9 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V20 ESTABLE
+# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V21 ESTABLE
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_elite_v20.db"
+DB_NAME = "frumix_enterprise_elite_v21.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -188,24 +188,24 @@ def init_db():
     cursor.execute("SELECT COUNT(*) FROM clientes")
     if cursor.fetchone()[0] == 0:
         clientes_oficiales = [
-            ("BULLKING", "Principal Caracas", "Supermercados", "Tarifa A (Comprador regular)", "Ladimir (Occidente)", "+58 412-1111111", "Compras Bullking", 15, 12000.0, "2026-10-10"),
-            ("CENTRAL MADERENSE", "Sucursal Este", "Supermercados", "Tarifa A (Comprador regular)", "Tufic (Capital)", "+58 412-2222222", "Juan Pérez", 30, 20000.0, "2026-09-15"),
-            ("CENTRAL MADERENSE", "Sucursal Centro", "Supermercados", "Tarifa A (Comprador regular)", "Tufic (Capital)", "+58 412-2222223", "María López", 30, 20000.0, "2026-09-20"),
-            ("SUPERMERCADO EUROS", "La Candelaria", "Supermercados", "Tarifa B (Comprador medio)", "Wilmer (Oriente)", "+58 412-3333333", "Ana Gómez", 15, 8000.0, "2026-10-18"),
-            ("LADIMIR", "Mercado Mayor", "Mayorista", "Tarifa A (Comprador regular)", "Ladimir (Occidente)", "+58 412-4444444", "Carlos Ladimir", 7, 15000.0, "2026-08-01"),
-            ("SUPERMERCADOS LUXOR", "Boleíta", "Supermercados", "Tarifa B (Comprador medio)", "Tufic (Capital)", "+58 412-5555555", "Luis Luxor", 15, 10000.0, "2026-10-01"),
-            ("MERCATO", "Chacao", "Supermercados", "Tarifa B (Comprador medio)", "Tufic (Capital)", "+58 412-3211234", "Gerencia Mercato", 15, 7000.0, "2026-10-05"),
-            ("PLAN SUAREZ", "Baruta", "Supermercados", "Tarifa A (Comprador regular)", "Ladimir (Occidente)", "+58 412-6666666", "Mario Suarez", 30, 18000.0, "2026-07-20"),
-            ("RIO CARACAS", "Antímano", "Supermercados", "Tarifa A (Comprador regular)", "Tufic (Capital)", "+58 412-7777777", "Pedro Río", 15, 12000.0, "2026-10-12"),
-            ("RIO MARGARITA", "Porlamar", "Supermercados", "Tarifa A (Comprador regular)", "Wilmer (Oriente)", "+58 412-1234567", "Ana Río", 30, 15000.0, "2026-09-01"),
-            ("RIO VIDA", "Caracas Centro", "Supermercados", "Tarifa B (Comprador medio)", "Tufic (Capital)", "+58 412-7654321", "Carlos Vida", 15, 8000.0, "2026-10-02"),
-            ("SIGO", "Margarita / Central", "Supermercados", "Tarifa A (Comprador regular)", "Wilmer (Oriente)", "+58 412-8888888", "Gerencia Sigo", 30, 25000.0, "2026-06-10"),
-            ("TIERRA SANTA", "Sabana Grande", "Minimarket", "Tarifa B (Comprador medio)", "Tufic (Capital)", "+58 412-9999999", "Ahmed T.S.", 15, 5000.0, "2026-10-15"),
-            ("SUPER 900", "Catia", "Supermercados", "Tarifa B (Comprador medio)", "Ladimir (Occidente)", "+58 412-9876543", "Luis 900", 15, 6000.0, "2026-09-25"),
-            ("TODO HOGAR", "Petare", "Comercial", "Tarifa C (Comprador esporádico)", "Tufic (Capital)", "+58 412-5432167", "María Hogar", 15, 4000.0, "2026-08-20"),
-            ("VIVA", "El Recreo", "Supermercados", "Tarifa B (Comprador medio)", "Tufic (Capital)", "+58 412-4567890", "Supervisor Viva", 15, 7000.0, "2026-09-30"),
-            ("WILMER", "El Valle", "Mayorista", "Tarifa A (Comprador regular)", "Wilmer (Oriente)", "+58 412-1357924", "Wilmer Distribución", 7, 10000.0, "2026-10-14"),
-            ("PARAMO COLD 2024", "Altamira", "HORECA", "Tarifa A (Comprador regular)", "Tufic (Capital)", "+58 412-2468135", "Equipo Paramo", 15, 8000.0, "2026-10-16"),
+            ("BULLKING", "Principal Caracas", "Supermercados", "Tarifa A (Comprador regular)", "Ladimir (Occidente)", "+58 412-1111111", "Compras Bullking", 15, 12000.0, "2026-09-10"),
+            ("CENTRAL MADERENSE", "Sucursal Este", "Supermercados", "Tarifa A (Comprador regular)", "Tufic (Capital)", "+58 412-2222222", "Juan Pérez", 30, 20000.0, "2026-08-15"),
+            ("CENTRAL MADERENSE", "Sucursal Centro", "Supermercados", "Tarifa A (Comprador regular)", "Tufic (Capital)", "+58 412-2222223", "María López", 30, 20000.0, "2026-08-20"),
+            ("SUPERMERCADO EUROS", "La Candelaria", "Supermercados", "Tarifa B (Comprador medio)", "Wilmer (Oriente)", "+58 412-3333333", "Ana Gómez", 15, 8000.0, "2026-09-18"),
+            ("LADIMIR", "Mercado Mayor", "Mayorista", "Tarifa A (Comprador regular)", "Ladimir (Occidente)", "+58 412-4444444", "Carlos Ladimir", 7, 15000.0, "2026-07-01"),
+            ("SUPERMERCADOS LUXOR", "Boleíta", "Supermercados", "Tarifa B (Comprador medio)", "Tufic (Capital)", "+58 412-5555555", "Luis Luxor", 15, 10000.0, "2026-09-01"),
+            ("MERCATO", "Chacao", "Supermercados", "Tarifa B (Comprador medio)", "Tufic (Capital)", "+58 412-3211234", "Gerencia Mercato", 15, 7000.0, "2026-09-05"),
+            ("PLAN SUAREZ", "Baruta", "Supermercados", "Tarifa A (Comprador regular)", "Ladimir (Occidente)", "+58 412-6666666", "Mario Suarez", 30, 18000.0, "2026-06-20"),
+            ("RIO CARACAS", "Antímano", "Supermercados", "Tarifa A (Comprador regular)", "Tufic (Capital)", "+58 412-7777777", "Pedro Río", 15, 12000.0, "2026-09-12"),
+            ("RIO MARGARITA", "Porlamar", "Supermercados", "Tarifa A (Comprador regular)", "Wilmer (Oriente)", "+58 412-1234567", "Ana Río", 30, 15000.0, "2026-08-01"),
+            ("RIO VIDA", "Caracas Centro", "Supermercados", "Tarifa B (Comprador medio)", "Tufic (Capital)", "+58 412-7654321", "Carlos Vida", 15, 8000.0, "2026-09-02"),
+            ("SIGO", "Margarita / Central", "Supermercados", "Tarifa A (Comprador regular)", "Wilmer (Oriente)", "+58 412-8888888", "Gerencia Sigo", 30, 25000.0, "2026-05-10"),
+            ("TIERRA SANTA", "Sabana Grande", "Minimarket", "Tarifa B (Comprador medio)", "Tufic (Capital)", "+58 412-9999999", "Ahmed T.S.", 15, 5000.0, "2026-09-15"),
+            ("SUPER 900", "Catia", "Supermercados", "Tarifa B (Comprador medio)", "Ladimir (Occidente)", "+58 412-9876543", "Luis 900", 15, 6000.0, "2026-08-25"),
+            ("TODO HOGAR", "Petare", "Comercial", "Tarifa C (Comprador esporádico)", "Tufic (Capital)", "+58 412-5432167", "María Hogar", 15, 4000.0, "2026-07-20"),
+            ("VIVA", "El Recreo", "Supermercados", "Tarifa B (Comprador medio)", "Tufic (Capital)", "+58 412-4567890", "Supervisor Viva", 15, 7000.0, "2026-08-30"),
+            ("WILMER", "El Valle", "Mayorista", "Tarifa A (Comprador regular)", "Wilmer (Oriente)", "+58 412-1357924", "Wilmer Distribución", 7, 10000.0, "2026-09-14"),
+            ("PARAMO COLD 2024", "Altamira", "HORECA", "Tarifa A (Comprador regular)", "Tufic (Capital)", "+58 412-2468135", "Equipo Paramo", 15, 8000.0, "2026-09-16"),
         ]
         cursor.executemany("""
             INSERT INTO clientes (matriz, sucursal, segmento, tarifa, dupla, telefono, contacto, limite_credito_dias, limite_credito_dolares, ultimo_pedido)
@@ -315,17 +315,18 @@ modulos_disponibles = [
 menu = st.sidebar.radio("Módulos ERP Enterprise Elite:", modulos_disponibles)
 
 # ---------------------------------------------------------
-# 1. DASHBOARD GERENCIAL & P&L
+# 1. DASHBOARD GERENCIAL & P&L (CON NOTIFICACIONES INTELIGENTES)
 # ---------------------------------------------------------
 if "1." in menu:
     st.title("📊 Dashboard Gerencial y Estado de Resultados (P&L)")
-    st.write("Centro analítico de alto rendimiento con gráficos ejecutivos para la toma de decisiones.")
+    st.write("Centro analítico de alto rendimiento con alertas automáticas de morosidad e inactividad de clientes.")
 
     conn = sqlite3.connect(DB_NAME)
     df_ped = pd.read_sql("SELECT * FROM pedidos", conn)
     df_inv = pd.read_sql("SELECT * FROM inventario", conn)
     df_mer = pd.read_sql("SELECT * FROM mermas", conn)
     df_cxc = pd.read_sql("SELECT * FROM cobranza", conn)
+    df_cli = pd.read_sql("SELECT * FROM clientes", conn)
     conn.close()
 
     total_ventas = df_ped["monto_total"].sum() if not df_ped.empty else 0.0
@@ -345,6 +346,50 @@ if "1." in menu:
         st.metric("Valor Inventario en Frío", f"${val_inv:,.2f}")
     with c4:
         st.metric("Cuentas por Cobrar Activas", f"${deuda_pendiente:,.2f}")
+
+    st.markdown("---")
+    
+    # ---------------------------------------------------------
+    # CENTRO DE NOTIFICACIONES Y ALERTAS (MOROSIDAD E INACTIVIDAD)
+    # ---------------------------------------------------------
+    st.subheader("🔔 Centro de Alertas y Notificaciones Gerenciales")
+    
+    col_alerta_1, col_alerta_2 = st.columns(2)
+    
+    with col_alerta_1:
+        st.markdown("### 🚨 Alerta de Morosidad (CxC Vencidas)")
+        if not df_cxc.empty:
+            hoy_str = str(date.today())
+            df_cxc["fecha_vencimiento"] = pd.to_datetime(df_cxc["fecha_vencimiento"])
+            df_morosos = df_cxc[(df_cxc["estatus_pago"] != "Pagado") & (df_cxc["fecha_vencimiento"] < pd.Timestamp(hoy_str))]
+            
+            if not df_morosos.empty:
+                total_mora = (df_morosos["monto_factura"] - df_morosos["monto_pagado"]).sum()
+                st.error(f"⚠️ ¡Atención! Hay **{len(df_morosos)} facturas vencidas** por un total de **${total_mora:,.2f} USD**.")
+                st.dataframe(df_morosos[["nro_factura", "cliente", "fecha_vencimiento", "monto_factura"]], use_container_width=True)
+            else:
+                st.success("✅ No hay facturas en estado de morosidad actualmente.")
+        else:
+            st.info("No hay registros de cobranza.")
+
+    with col_alerta_2:
+        st.markdown("### 💤 Alerta de Clientes Inactivos")
+        dias_inactividad_limite = st.slider("Filtrar clientes sin pedidos hace más de (días):", min_value=5, max_value=90, value=30)
+        
+        if not df_cli.empty:
+            hoy_dt = pd.Timestamp(date.today())
+            df_cli["ultimo_pedido"] = pd.to_datetime(df_cli["ultimo_pedido"])
+            df_cli["dias_sin_comprar"] = (hoy_dt - df_cli["ultimo_pedido"]).dt.days
+            
+            df_inactivos = df_cli[df_cli["dias_sin_comprar"] >= dias_inactividad_limite]
+            
+            if not df_inactivos.empty:
+                st.warning(f"⚠️ Se detectaron **{len(df_inactivos)} sucursales** sin pedidos en los últimos {dias_inactividad_limite} días.")
+                st.dataframe(df_inactivos[["matriz", "sucursal", "dupla", "contacto", "telefono", "dias_sin_comprar"]], use_container_width=True)
+            else:
+                st.success(f"✅ Todos los clientes están activos (ninguno supera los {dias_inactividad_limite} días sin comprar).")
+        else:
+            st.info("No hay clientes registrados.")
 
     st.markdown("---")
     st.subheader("📈 Gráficos de Comportamiento Financiero y Ventas")
@@ -555,6 +600,9 @@ elif "3." in menu:
                         VALUES (?, ?, ?, ?, ?, 0.0, 'Pendiente')
                     """, (f"FAC-{nro_p}", cli_sel, str(date.today()), str(date.today() + pd.Timedelta(days=15)), monto_total_ped))
 
+                    # Actualizar fecha del ultimo pedido al cliente
+                    cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ? AND sucursal = ?", (str(date.today()), cli_sel, suc_sel))
+
                     for item in st.session_state.carrito_pedido:
                         cursor.execute("SELECT stock_cajas FROM inventario WHERE id = ?", (item["inventario_id"],))
                         stk_act = cursor.fetchone()[0]
@@ -740,6 +788,8 @@ elif "5." in menu:
                         INSERT INTO cobranza (nro_factura, cliente, fecha_emision, fecha_vencimiento, monto_factura, monto_pagado, estatus_pago)
                         VALUES (?, ?, ?, ?, ?, 0.0, 'Pendiente')
                     """, (f"FAC-{nro_ped_m.upper()}", cliente_m, str(fecha_ped_m), str(fecha_ped_m + pd.Timedelta(days=15)), monto_m))
+
+                    cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ?", (str(fecha_ped_m), cliente_m))
 
                     conn.commit()
                     conn.close()
