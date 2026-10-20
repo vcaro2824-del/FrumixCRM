@@ -33,9 +33,9 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V21 ESTABLE
+# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V23 ESTABLE
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_elite_v21.db"
+DB_NAME = "frumix_enterprise_elite_v23.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -315,11 +315,11 @@ modulos_disponibles = [
 menu = st.sidebar.radio("Módulos ERP Enterprise Elite:", modulos_disponibles)
 
 # ---------------------------------------------------------
-# 1. DASHBOARD GERENCIAL & P&L (CON NOTIFICACIONES INTELIGENTES)
+# 1. DASHBOARD GERENCIAL & P&L
 # ---------------------------------------------------------
 if "1." in menu:
     st.title("📊 Dashboard Gerencial y Estado de Resultados (P&L)")
-    st.write("Centro analítico de alto rendimiento con alertas automáticas de morosidad e inactividad de clientes.")
+    st.write("Centro analítico de alto rendimiento con alertas automáticas detalladas de facturas vencidas.")
 
     conn = sqlite3.connect(DB_NAME)
     df_ped = pd.read_sql("SELECT * FROM pedidos", conn)
@@ -349,15 +349,11 @@ if "1." in menu:
 
     st.markdown("---")
     
-    # ---------------------------------------------------------
-    # CENTRO DE NOTIFICACIONES Y ALERTAS (MOROSIDAD E INACTIVIDAD)
-    # ---------------------------------------------------------
     st.subheader("🔔 Centro de Alertas y Notificaciones Gerenciales")
-    
     col_alerta_1, col_alerta_2 = st.columns(2)
     
     with col_alerta_1:
-        st.markdown("### 🚨 Alerta de Morosidad (CxC Vencidas)")
+        st.markdown("### 🚨 Notificación de Facturas Vencidas (Morosidad)")
         if not df_cxc.empty:
             hoy_str = str(date.today())
             df_cxc["fecha_vencimiento"] = pd.to_datetime(df_cxc["fecha_vencimiento"])
@@ -365,12 +361,14 @@ if "1." in menu:
             
             if not df_morosos.empty:
                 total_mora = (df_morosos["monto_factura"] - df_morosos["monto_pagado"]).sum()
-                st.error(f"⚠️ ¡Atención! Hay **{len(df_morosos)} facturas vencidas** por un total de **${total_mora:,.2f} USD**.")
-                st.dataframe(df_morosos[["nro_factura", "cliente", "fecha_vencimiento", "monto_factura"]], use_container_width=True)
+                st.error(f"⚠️ ¡Atención! Hay **{len(df_morosos)} facturas vencidas** por cobrar equivalente a **${total_mora:,.2f} USD**.")
+                df_morosos["PENDIENTE ($)"] = df_morosos["monto_factura"] - df_morosos["monto_pagado"]
+                df_display_mora = df_morosos[["nro_factura", "cliente", "fecha_emision", "fecha_vencimiento", "monto_factura", "PENDIENTE ($)", "estatus_pago"]]
+                st.dataframe(df_display_mora, use_container_width=True)
             else:
-                st.success("✅ No hay facturas en estado de morosidad actualmente.")
+                st.success("✅ No hay facturas vencidas en este momento.")
         else:
-            st.info("No hay registros de cobranza.")
+            st.info("No hay registros de facturación.")
 
     with col_alerta_2:
         st.markdown("### 💤 Alerta de Clientes Inactivos")
@@ -387,7 +385,7 @@ if "1." in menu:
                 st.warning(f"⚠️ Se detectaron **{len(df_inactivos)} sucursales** sin pedidos en los últimos {dias_inactividad_limite} días.")
                 st.dataframe(df_inactivos[["matriz", "sucursal", "dupla", "contacto", "telefono", "dias_sin_comprar"]], use_container_width=True)
             else:
-                st.success(f"✅ Todos los clientes están activos (ninguno supera los {dias_inactividad_limite} días sin comprar).")
+                st.success(f"✅ Todos los clientes están activos.")
         else:
             st.info("No hay clientes registrados.")
 
@@ -399,28 +397,12 @@ if "1." in menu:
     else:
         st.info("Aún no hay suficientes registros de pedidos para graficar tendencias.")
 
-    st.markdown("---")
-    st.subheader("📈 Estado de Resultados Financiero Consolidado (P&L)")
-    col_p1, col_p2 = st.columns(2)
-    with col_p1:
-        st.markdown(f"""
-        * **(+) Ventas Totales Brutas:** ${total_ventas:,.2f}
-        * **(-) Costo de Mercancía Vendida (COGS):** ${total_costos_v:,.2f}
-        * **(=) Utilidad Bruta Comercial:** **${ganancia_neta_pedidos:,.2f}**
-        """)
-    with col_p2:
-        st.markdown(f"""
-        * **(-) Pérdidas Registradas por Mermas:** ${val_merma:,.2f}
-        * **(+) Total CxC Pendiente de Cobro:** ${deuda_pendiente:,.2f}
-        * **(=) Utilidad Neta Proyectada:** **${ganancia_neta_pedidos - val_merma:,.2f}**
-        """)
-
 # ---------------------------------------------------------
 # 2. INVENTARIO POR FRUTA Y CALIBRE
 # ---------------------------------------------------------
 elif "2." in menu:
     st.title("📦 Control de Inventario por Frutas y Calibres en Existencia")
-    st.write("Agrega los calibres que vayan ingresando para cada fruta. Las existencias se actualizarán al vender.")
+    st.write("Agrega los calibres que vayan ingresando para cada fruta. Las existencias se actualizarán al vender o registrar mermas.")
 
     tab_inv1, tab_inv2 = st.tabs(["📋 Existencias Actuales por Calibre", "➕ Añadir Lote / Fruta / Calibre"])
 
@@ -467,7 +449,6 @@ elif "2." in menu:
                     if fruta_sel and calibre_ingresado.strip():
                         conn = sqlite3.connect(DB_NAME)
                         cursor = conn.cursor()
-                        
                         calibre_clean = calibre_ingresado.strip().upper()
                         
                         cursor.execute("""
@@ -495,15 +476,13 @@ elif "2." in menu:
                         conn.close()
                         st.success(f"¡Se agregaron {cajas_ingreso} cajas de {fruta_sel} (Calibre {calibre_clean}) al inventario!")
                         st.rerun()
-                    else:
-                        st.error("Por favor seleccione la fruta e indique el calibre.")
 
 # ---------------------------------------------------------
-# 3. VENTAS & PEDIDOS POR CALIBRE
+# 3. VENTAS & PEDIDOS POR CALIBRE (RESTOCK AUTOMÁTICO DE INVENTARIO)
 # ---------------------------------------------------------
 elif "3." in menu:
     st.title("🛒 Generador de Pedidos y Ventas por Calibre")
-    st.write("Selecciona la fruta y el calibre en existencia. El stock se restará automáticamente del inventario al procesar.")
+    st.write("Selecciona la fruta y el calibre en existencia. El stock se restará automáticamente del inventario al procesar el pedido.")
 
     df_cli_db = get_clientes_cache()
     df_inv_db = get_inventario_cache()
@@ -600,9 +579,9 @@ elif "3." in menu:
                         VALUES (?, ?, ?, ?, ?, 0.0, 'Pendiente')
                     """, (f"FAC-{nro_p}", cli_sel, str(date.today()), str(date.today() + pd.Timedelta(days=15)), monto_total_ped))
 
-                    # Actualizar fecha del ultimo pedido al cliente
                     cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ? AND sucursal = ?", (str(date.today()), cli_sel, suc_sel))
 
+                    # RESTAR DEL INVENTARIO Y REGISTRAR EN KARDEX SALIDA
                     for item in st.session_state.carrito_pedido:
                         cursor.execute("SELECT stock_cajas FROM inventario WHERE id = ?", (item["inventario_id"],))
                         stk_act = cursor.fetchone()[0]
@@ -613,13 +592,13 @@ elif "3." in menu:
                         cursor.execute("""
                             INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
                             VALUES (?, ?, ?, 'SALIDA', ?, ?, ?, ?)
-                        """, (item["lote"], item["producto"], item["calibre"], item["cajas"], f"Despacho Pedido {nro_p}", str(date.today()), st.session_state.rol))
+                        """, (item["lote"], item["producto"], item["calibre"], item["cajas"], f"Venta Pedido {nro_p}", str(date.today()), st.session_state.rol))
 
                     conn.commit()
                     conn.close()
 
                     st.session_state.carrito_pedido = []
-                    st.success(f"¡Pedido {nro_p} procesado con éxito! Las existencias del calibre fueron restadas del inventario.")
+                    st.success(f"¡Pedido {nro_p} procesado con éxito! Las existencias fueron descontadas de las cámaras de frío y se generó su factura CxC.")
                     st.rerun()
 
                 except Exception as e:
@@ -915,7 +894,7 @@ elif "7." in menu:
         st.info("No hay movimientos registrados en el kardex.")
 
 # ---------------------------------------------------------
-# 8. GESTIÓN Y EDICIÓN DE CLIENTES (INSERCIÓN, EDICIÓN Y ELIMINACIÓN)
+# 8. GESTIÓN Y EDICIÓN DE CLIENTES
 # ---------------------------------------------------------
 elif "8." in menu:
     st.title("🏢 Directorio, Edición y Gestión de Clientes (Matrices y Sucursales)")
@@ -1066,15 +1045,46 @@ elif "11." in menu:
 # 12. DEPARTAMENTO DE COBRANZA & CxC
 # ---------------------------------------------------------
 elif "12." in menu:
-    st.title("💰 Departamento de Cobranza - Cuentas por Cobrar")
+    st.title("💰 Departamento de Cobranza - Cuentas por Cobrar y Facturas")
+    st.write("Gestiona las facturas emitidas, revisa saldos pendientes y registra pagos.")
+
     conn = sqlite3.connect(DB_NAME)
-    df_cxc = pd.read_sql("SELECT * FROM cobranza", conn)
+    df_cob = pd.read_sql("SELECT * FROM cobranza", conn)
     conn.close()
 
-    if not df_cxc.empty:
-        st.dataframe(df_cxc, use_container_width=True)
+    if not df_cob.empty:
+        st.subheader("📋 Estado Actual de Facturas")
+        st.dataframe(df_cob, use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("💵 Registrar Pago de Factura")
+        with st.form("form_registrar_pago"):
+            fac_sel = st.selectbox("Seleccione Nro. de Factura", df_cob["nro_factura"].tolist())
+            row_fac = df_cob[df_cob["nro_factura"] == fac_sel].iloc[0]
+            
+            saldo_pendiente = row_fac["monto_factura"] - row_fac["monto_pagado"]
+            st.info(f"Cliente: **{row_fac['cliente']}** | Monto Total: **${row_fac['monto_factura']:,.2f}** | Pendiente: **${saldo_pendiente:,.2f}**")
+
+            pago_ingresado = st.number_input("Monto a Abonar / Pagar ($)", min_value=0.01, max_value=float(saldo_pendiente) if saldo_pendiente > 0 else 1.0, value=float(saldo_pendiente))
+
+            if st.form_submit_button("💾 Registrar Abono / Pago"):
+                nuevo_pagado = row_fac["monto_pagado"] + pago_ingresado
+                nuevo_estatus = "Pagado" if nuevo_pagado >= row_fac["monto_factura"] else "Parcial"
+
+                conn = sqlite3.connect(DB_NAME)
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE cobranza 
+                    SET monto_pagado = ?, estatus_pago = ?
+                    WHERE nro_factura = ?
+                """, (nuevo_pagado, nuevo_estatus, fac_sel))
+                conn.commit()
+                conn.close()
+
+                st.success(f"¡Pago de ${pago_ingresado:,.2f} registrado para la factura {fac_sel}!")
+                st.rerun()
     else:
-        st.info("No hay cuentas por cobrar registradas.")
+        st.info("No hay registros de cobranza.")
 
 # ---------------------------------------------------------
 # 13. LOGÍSTICA, DESPACHO & RUTAS
@@ -1101,18 +1111,86 @@ elif "14." in menu:
         st.dataframe(df_m, use_container_width=True)
 
 # ---------------------------------------------------------
-# 15. CONTROL DE MERMAS & PÉRDIDAS
+# 15. CONTROL DE MERMAS & PÉRDIDAS (RESTA AUTOMÁTICA DE INVENTARIO)
 # ---------------------------------------------------------
 elif "15." in menu:
     st.title("🗑️ Control de Mermas y Pérdidas Financieras")
-    conn = sqlite3.connect(DB_NAME)
-    df_mermas_hist = pd.read_sql("SELECT * FROM mermas", conn)
-    conn.close()
+    st.write("Registra pérdidas de fruta. Al guardar, **el sistema restará automáticamente las cajas de las cámaras de frío**.")
 
-    if not df_mermas_hist.empty:
-        st.dataframe(df_mermas_hist, use_container_width=True)
-    else:
-        st.info("No hay mermas registradas.")
+    tab_m1, tab_m2 = st.tabs(["📋 Historial de Mermas", "➕ Registrar Nueva Merma (Resta Stock)"])
+
+    with tab_m1:
+        conn = sqlite3.connect(DB_NAME)
+        df_mermas_hist = pd.read_sql("SELECT * FROM mermas", conn)
+        conn.close()
+
+        if not df_mermas_hist.empty:
+            st.dataframe(df_mermas_hist, use_container_width=True)
+        else:
+            st.info("No hay mermas registradas.")
+
+    with tab_m2:
+        df_inv_merma = get_inventario_cache()
+        df_inv_con_stock = df_inv_merma[df_inv_merma["stock_cajas"] > 0] if not df_inv_merma.empty else pd.DataFrame()
+
+        if not df_inv_con_stock.empty:
+            with st.form("form_registrar_merma_stock"):
+                st.subheader("Seleccionar Lote y Calibre a Dar de Baja por Merma")
+                
+                # Crear opciones descriptivas para el selectbox
+                opciones_lotes = []
+                for _, r in df_inv_con_stock.iterrows():
+                    opciones_lotes.append(f"ID: {r['id']} | Lote: {r['lote']} | {r['producto']} (Calibre: {r['calibre']}) - Stock: {r['stock_cajas']} cajas")
+
+                lote_sel_str = st.selectbox("Lote y Producto en Cámara", opciones_lotes)
+                
+                # Extraer el ID del inventario seleccionado
+                id_inv_sel = int(lote_sel_str.split("|")[0].replace("ID:", "").strip())
+                row_lote_sel = df_inv_con_stock[df_inv_con_stock["id"] == id_inv_sel].iloc[0]
+
+                st.info( ആരാy if False else f"Costo Unitario en Sistema: **${row_lote_sel['costo_unitario_caja']:,.2f} por caja** | Stock actual: **{row_lote_sel['stock_cajas']} cajas**")
+
+                cajas_perdidas = st.number_input("Cantidad de Cajas a Dar de Baja (Merma)", min_value=1.0, max_value=float(row_lote_sel["stock_cajas"]), value=5.0)
+                motivo_merma = st.text_input("Motivo de la Merma (Ej. Fruta madura, golpeada, daño por transporte)")
+                fecha_m = st.date_input("Fecha de Registro", value=date.today())
+
+                if st.form_submit_button("🗑️ CONFIRMAR MERMA Y RESTAR DEL INVENTARIO"):
+                    try:
+                        conn = sqlite3.connect(DB_NAME)
+                        cursor = conn.cursor()
+                        cursor.execute("BEGIN TRANSACTION;")
+
+                        perdida_monetaria = cajas_perdidas * row_lote_sel["costo_unitario_caja"]
+
+                        # 1. Registrar en tabla mermas
+                        cursor.execute("""
+                            INSERT INTO mermas (lote, producto, calibre, cantidad_perdida, costo_unitario, perdida_monetaria, motivo, fecha_merma)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (row_lote_sel["lote"], row_lote_sel["producto"], row_lote_sel["calibre"], cajas_perdidas, row_lote_sel["costo_unitario_caja"], perdida_monetaria, motivo_merma, str(fecha_m)))
+
+                        # 2. Restar del stock de inventario
+                        nuevo_stock_inv = max(0.0, row_lote_sel["stock_cajas"] - cajas_perdidas)
+                        cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stock_inv, id_inv_sel))
+
+                        # 3. Registrar salida en Kardex
+                        cursor.execute("""
+                            INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
+                            VALUES (?, ?, ?, 'SALIDA', ?, ?, ?, ?)
+                        """, (row_lote_sel["lote"], row_lote_sel["producto"], row_lote_sel["calibre"], cajas_perdidas, f"Merma: {motivo_merma}", str(fecha_m), st.session_state.rol))
+
+                        conn.commit()
+                        conn.close()
+
+                        st.success(f"¡Merma registrada! Se descontaron {cajas_perdidas} cajas de {row_lote_sel['producto']} (Calibre {row_lote_sel['calibre']}) del inventario en frío.")
+                        st.rerun()
+
+                    except Exception as e:
+                        if 'conn' in locals():
+                            conn.rollback()
+                            conn.close()
+                        st.error(f"Error al procesar la merma: {e}")
+        else:
+            st.warning("No hay existencias en inventario para registrar mermas.")
 
 # ---------------------------------------------------------
 # 16. REGISTRO DE DEVOLUCIONES Y MERMAS
