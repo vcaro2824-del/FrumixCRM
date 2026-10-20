@@ -33,9 +33,9 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V25 ESTABLE
+# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V27 ESTABLE
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_elite_v25.db"
+DB_NAME = "frumix_enterprise_elite_v27.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -213,6 +213,21 @@ def init_db():
         """, clientes_oficiales)
         conn.commit()
 
+    # Cargar Productos Base de Prueba si está vacío
+    cursor.execute("SELECT COUNT(*) FROM matriz_precios")
+    if cursor.fetchone()[0] == 0:
+        productos_base = [
+            ("759101", "759101", "MANZANA GALA", "80/88", "Premium", 19.0, 45.0, 65.0, 3.42, 30.8),
+            ("759102", "759102", "MANZANA RED DELICIOUS", "100/110", "Premium", 19.0, 42.0, 60.0, 3.16, 30.0),
+            ("759103", "759103", "PERA DJOUMAH", "70/80", "Con detalle", 18.0, 48.0, 70.0, 3.89, 31.4),
+            ("759104", "759104", "UVA IMPORTADA", "GRANEL", "A granel", 8.2, 25.0, 38.0, 4.63, 34.2),
+        ]
+        cursor.executemany("""
+            INSERT INTO matriz_precios (codigo, barra, descripcion, calibre, clasificacion_calidad, empaque_kg, costo_caja, precio_caja, precio_kg, margen_pct)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, productos_base)
+        conn.commit()
+
     conn.close()
 
 init_db()
@@ -348,7 +363,6 @@ if menu.startswith("1."):
         st.metric("Cuentas por Cobrar Activas", f"${deuda_pendiente:,.2f}")
 
     st.markdown("---")
-    
     st.subheader("🔔 Centro de Alertas y Notificaciones Gerenciales")
     col_alerta_1, col_alerta_2 = st.columns(2)
     
@@ -388,14 +402,6 @@ if menu.startswith("1."):
                 st.success(f"✅ Todos los clientes están activos.")
         else:
             st.info("No hay clientes registrados.")
-
-    st.markdown("---")
-    st.subheader("📈 Gráficos de Comportamiento Financiero y Ventas")
-    if not df_ped.empty:
-        df_chart = df_ped.groupby("fecha_pedido")["monto_total"].sum().reset_index()
-        st.bar_chart(df_chart.set_index("fecha_pedido"))
-    else:
-        st.info("Aún no hay suficientes registros de pedidos para graficar tendencias.")
 
 # ---------------------------------------------------------
 # 2. INVENTARIO POR FRUTA Y CALIBRE
@@ -609,11 +615,11 @@ elif menu.startswith("3."):
         st.warning("No hay productos con existencias en cámaras de frío. Ingrese lotes en el módulo de Inventario.")
 
 # ---------------------------------------------------------
-# 4. VENTAS & COTIZADOR PRO
+# 4. VENTAS & COTIZADOR PRO (CON PRECIO POR KG VISIBLE)
 # ---------------------------------------------------------
 elif menu.startswith("4."):
-    st.title("📄 Cotizador B2B Profesional con Formato Imprimible")
-    st.write("Genera listas de precios oficiales y exporta el documento HTML institucional con logo para clientes.")
+    st.title("📄 Cotizador B2B Profesional con Conversión de Precio por KG")
+    st.write("Modifica los precios y visualiza automáticamente la conversión de precio por kilogramo y el margen de ganancia antes de exportar la cotización oficial.")
 
     df_mat = get_catalogo_cache()
     df_cli_db = get_clientes_cache()
@@ -631,17 +637,25 @@ elif menu.startswith("4."):
         vig_sel = st.date_input("Validez de precios:", value=date.today() + pd.Timedelta(days=7))
 
     st.markdown("---")
-    st.subheader("📋 Cuadro de Precios:")
+    st.subheader("📋 Cuadro de Precios con Cálculo Automático por KG")
 
     if not df_mat.empty:
         df_editor_v = df_mat[["codigo", "barra", "descripcion", "calibre", "clasificacion_calidad", "empaque_kg", "costo_caja", "precio_caja"]].copy()
         df_editor_v.columns = ["CÓDIGO", "BARRA", "DESCRIPCIÓN", "CALIBRE", "CALIDAD", "EMPAQUE/KG", "COSTO CAJA ($)", "PRECIO CAJA ($)"]
 
+        # Editor interactivo donde puedes cambiar el precio por caja
         df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra")
 
+        # CÁLCULO AUTOMÁTICO VISIBLE DEL PRECIO POR KG
         df_editado_venta["PRECIO POR KG ($)"] = df_editado_venta.apply(
             lambda r: round(r["PRECIO CAJA ($)"] / r["EMPAQUE/KG"], 2) if r["EMPAQUE/KG"] > 0 else 0.0, axis=1
         )
+        df_editado_venta["MARGEN (%)"] = df_editado_venta.apply(
+            lambda r: round(((r["PRECIO CAJA ($)"] - r["COSTO CAJA ($)"]) / r["PRECIO CAJA ($)"] * 100), 1) if r["PRECIO CAJA ($)"] > 0 else 0.0, axis=1
+        )
+
+        st.markdown("### 📊 Vista Previa de Precios por Caja y por Kilogramo")
+        st.dataframe(df_editado_venta[["CÓDIGO", "DESCRIPCIÓN", "CALIBRE", "CALIDAD", "EMPAQUE/KG", "PRECIO CAJA ($)", "PRECIO POR KG ($)", "MARGEN (%)"]], use_container_width=True)
 
         st.markdown("---")
         st.subheader("📄 Generar Formato Imprimible")
@@ -681,7 +695,7 @@ elif menu.startswith("4."):
                 </div>
                 
                 <div class="intro-text">
-                    A continuación encontrará nuestra lista de precios.<br>
+                    A continuación encontrará nuestra lista oficial de precios por caja y kilogramo.<br>
                     Nuestra alianza con los mejores productos de frutas frescas a nivel mundial y el correcto manejo del producto garantiza la calidad y buen servicio que nos caracteriza.
                 </div>
 
@@ -724,7 +738,7 @@ elif menu.startswith("4."):
         st.info("No hay productos en el catálogo. Agrégalos en el módulo '6. Lista y Gestión de Productos'.")
 
 # ---------------------------------------------------------
-# 5. REGISTRO MANUAL DE PEDIDOS & FACTURAS (CON STOCK Y CALIBRE)
+# 5. REGISTRO MANUAL DE PEDIDOS & FACTURAS
 # ---------------------------------------------------------
 elif menu.startswith("5."):
     st.title("📋 Registro Manual de Pedidos y Facturas con Descuento de Stock")
@@ -791,31 +805,26 @@ elif menu.startswith("5."):
                             "subtotal": monto_total_m
                         }])
 
-                        # 1. Registrar Pedido
                         cursor.execute("""
                             INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', ?)
                         """, (nro_ped_m.upper(), cliente_m, "Sucursal Principal", realizado_por_m, atendido_por_m, recibido_por_m, datos_imp_m, str(fecha_ped_m), monto_total_m, costo_total_m, ganancia_m, detalle_json_manual))
 
-                        # 2. Registrar Factura en Cobranza
                         fecha_venc_m = fecha_ped_m + pd.Timedelta(days=int(dias_credito))
                         cursor.execute("""
                             INSERT INTO cobranza (nro_factura, cliente, fecha_emision, fecha_vencimiento, monto_factura, monto_pagado, estatus_pago)
                             VALUES (?, ?, ?, ?, ?, 0.0, 'Pendiente')
                         """, (nro_fac_m.upper(), cliente_m, str(fecha_ped_m), str(fecha_venc_m), monto_total_m))
 
-                        # 3. Actualizar último pedido del cliente
                         cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ?", (str(fecha_ped_m), cliente_m))
 
-                        # 4. Restar inventario en cámaras
                         nuevo_stk_m = max(0.0, row_lote_sel_m["stock_cajas"] - cajas_manuales)
                         cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stk_m, id_inv_sel_m))
 
-                        # 5. Registrar salida en Kardex
                         cursor.execute("""
                             INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
                             VALUES (?, ?, ?, 'SALIDA', ?, ?, ?, ?)
-                        """, (row_lote_sel_m["lote"], row_lote_sel_m["producto"], row_lote_sel_m["calibre"], cajas_manuales, f"Pedido Manual {nro_ped_m} / Factura {nro_fac_m}", str(fecha_ped_m), st.session_state.rol))
+                        """, (row_lote_sel_m["lote"], row_lote_sel_m["producto"], row_lote_sel["calibre"], cajas_manuales, f"Pedido Manual {nro_ped_m} / Factura {nro_fac_m}", str(fecha_ped_m), st.session_state.rol))
 
                         conn.commit()
                         conn.close()
@@ -1155,11 +1164,12 @@ elif menu.startswith("13."):
 # 14. MATRIZ DINÁMICA DE PRECIOS
 # ---------------------------------------------------------
 elif menu.startswith("14."):
-    st.title("💲 Matriz de Precios - Conversión Caja a Kilogramo")
+    st.title("💲 Matriz de Precios - Conversión de Caja a Kilogramo")
     df_m = get_catalogo_cache()
 
     if not df_m.empty:
-        st.dataframe(df_m, use_container_width=True)
+        df_m["precio_kg"] = df_m.apply(lambda r: round(r["precio_caja"] / r["empaque_kg"], 2) if r["empaque_kg"] > 0 else 0.0, axis=1)
+        st.dataframe(df_m[["codigo", "descripcion", "calibre", "clasificacion_calidad", "empaque_kg", "costo_caja", "precio_caja", "precio_kg", "margen_pct"]], use_container_width=True)
 
 # ---------------------------------------------------------
 # 15. CONTROL DE MERMAS & PÉRDIDAS
