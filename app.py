@@ -32,7 +32,7 @@ threading.Thread(target=keep_alive, daemon=True).start()
 # ---------------------------------------------------------
 # BASE DE DATOS RELACIONAL INTEGRAL (SQLITE)
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_definitivo_v4.db"
+DB_NAME = "frumix_enterprise_definitivo_v5.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -531,11 +531,11 @@ elif menu == "🎯 Embudo de Ventas (Sales Funnel)":
                 st.rerun()
 
 # ---------------------------------------------------------
-# 6. VENTAS & COTIZADOR PRO (CÁLCULO DINÁMICO BLINDADO)
+# 6. VENTAS & COTIZADOR PRO (CUADRO TABULAR EDITABLE CON CÁLCULO EN VIVO)
 # ---------------------------------------------------------
 elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
     st.title("🛒 Departamento de Ventas - Cotizador B2B Profesional")
-    st.write("Modifica el precio por caja de cada producto y observa el cálculo automático por kilogramo.")
+    st.write("Modifica el precio por caja en la tabla; el precio por kilogramo se calculará de inmediato.")
 
     conn = sqlite3.connect(DB_NAME)
     df_mat = pd.read_sql("SELECT * FROM matriz_precios", conn)
@@ -561,49 +561,24 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
         st.info(f"💳 **Crédito ({cli_sel} - {suc_sel}):** ${l_cred:,.2f} USD | **Plazo:** {l_dias} días")
 
     st.markdown("---")
-    st.subheader("📋 Ajuste de Precios por Caja y Cálculo Instantáneo por KG:")
+    st.subheader("📋 Cuadro de Precios (Edita la columna 'PRECIO CAJA ($)'):")
 
-    # Creamos un formulario interactivo por filas para asegurar que el cálculo se vea y funcione al 100% en vivo
-    items_cotizacion = []
-    
     if not df_mat.empty:
-        for idx, row in df_mat.iterrows():
-            col_d1, col_d2, col_d3, col_d4, col_d5 = st.columns([2, 1, 1, 1.5, 1.5])
-            with col_d1:
-                st.markdown(f"**{row['descripcion']}**  \n*Calibre:* `{row['calibre']}` | *Empaque:* `{row['empaque_kg']} kg`")
-            with col_d2:
-                st.text(f"Cód: {row['codigo']}")
-            with col_d3:
-                st.text(f"Costo: ${row['costo_caja']}")
-            with col_d4:
-                # Campo de entrada editable para el precio de la caja
-                p_caja_nuevo = st.number_input(
-                    f"Precio Caja ($) [{row['codigo']}]", 
-                    min_value=0.0, 
-                    value=float(row['precio_caja']), 
-                    step=1.0, 
-                    key=f"pcaja_{row['id']}",
-                    label_visibility="collapsed"
-                )
-            with col_d5:
-                # Cálculo matemático inmediato en pantalla
-                empaque = row['empaque_kg']
-                p_kg_calculado = round(p_caja_nuevo / empaque, 2) if empaque > 0 else 0.0
-                st.markdown(f"**${p_kg_calculado:,.2f} / kg**")
+        # Preparamos el DataFrame limpio para el cuadro tabular
+        df_editor_v = df_mat[["codigo", "barra", "descripcion", "calibre", "empaque_kg", "costo_caja", "precio_caja"]].copy()
+        df_editor_v.columns = ["CÓDIGO", "BARRA", "DESCRIPCIÓN", "CALIBRE", "EMPAQUE/KG", "COSTO CAJA ($)", "PRECIO CAJA ($)"]
 
-            items_cotizacion.append({
-                "CÓDIGO": row['codigo'],
-                "BARRA": row['barra'],
-                "DESCRIPCIÓN": row['descripcion'],
-                "CALIBRE": row['calibre'],
-                "EMPAQUE/KG": empaque,
-                "COSTO CAJA ($)": row['costo_caja'],
-                "PRECIO CAJA ($)": p_caja_nuevo,
-                "PRECIO POR KG ($)": p_kg_calculado
-            })
-            st.markdown("---")
+        # Cuadro tabular interactivo estilo Excel
+        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra")
 
-        df_editado_venta = pd.DataFrame(items_cotizacion)
+        # Fórmula matemática instantánea basada en los cambios de la tabla
+        df_editado_venta["PRECIO POR KG ($)"] = df_editado_venta.apply(
+            lambda r: round(r["PRECIO CAJA ($)"] / r["EMPAQUE/KG"], 2) if r["EMPAQUE/KG"] > 0 else 0.0, axis=1
+        )
+
+        st.markdown("---")
+        st.subheader("📊 Vista Previa Actualizada del Cotizador (Con Precios por Kilo Calculados):")
+        st.dataframe(df_editado_venta, use_container_width=True)
 
         if st.button("💾 Procesar Pedido y Guardar en Historial"):
             det_json = json.dumps(df_editado_venta.to_dict(orient="records"))
