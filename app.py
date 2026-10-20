@@ -32,7 +32,7 @@ threading.Thread(target=keep_alive, daemon=True).start()
 # ---------------------------------------------------------
 # BASE DE DATOS RELACIONAL INTEGRAL (SQLITE)
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_definitivo_v6.db"
+DB_NAME = "frumix_enterprise_definitivo_v9.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -71,7 +71,7 @@ def init_db():
         )
     """)
     
-    # 3. Pedidos y Despachos Comerciales (Con datos manuales detallados)
+    # 3. Pedidos y Despachos Comerciales
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS pedidos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -594,14 +594,19 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', ?)
             """, (nro_p, cli_sel, suc_sel, "Sistema Cotizador", asesor_asignado, "Cliente Final", "Generado desde Cotizador Pro", str(date.today()), monto_aprox, costo_aprox, ganancia_aprox, det_json))
             
+            cursor.execute("""
+                INSERT INTO cobranza (nro_factura, cliente, fecha_emision, fecha_vencimiento, monto_factura, monto_pagado, estatus_pago)
+                VALUES (?, ?, ?, ?, ?, 0.0, 'Pendiente')
+            """, (f"FAC-{nro_p}", cli_sel, str(date.today()), str(date.today() + pd.Timedelta(days=15)), monto_aprox))
+
             cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ? AND sucursal = ?", (str(date.today()), cli_sel, suc_sel))
             conn.commit()
             conn.close()
 
-            st.success(f"¡Pedido {nro_p} procesado con éxito para {cli_sel} ({suc_sel})!")
+            st.success(f"¡Pedido {nro_p} procesado con éxito y reflejado en Logística y Cobranza!")
 
     st.markdown("---")
-    st.subheader("📄 Generar Formato Imprimible (Con Logo, Calibres y Textos Oficiales)")
+    st.subheader("📄 Generar Formato Imprimible (Diseño Estricto: Arial 12, Justificado Izquierda y Cuadro Ancho)")
     if st.button("📥 Generar Documento HTML de Cotización"):
         logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
         
@@ -611,14 +616,67 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
             <meta charset="utf-8">
             <title>Cotización Oficial - Frumix C.A.</title>
             <style>
-                body {{ font-family: Arial, sans-serif; margin: 30px; color: #111; }}
-                .header {{ display: flex; justify-content: space-between; border-bottom: 3px solid #6B8E23; padding-bottom: 15px; align-items: center; }}
+                body {{ 
+                    font-family: Arial, sans-serif; 
+                    font-size: 12px; 
+                    margin: 30px; 
+                    color: #111; 
+                    text-align: left; 
+                }}
+                .header {{ 
+                    display: flex; 
+                    justify-content: space-between; 
+                    border-bottom: 3px solid #6B8E23; 
+                    padding-bottom: 15px; 
+                    align-items: center; 
+                    text-align: left;
+                }}
                 .logo {{ max-height: 80px; width: auto; }}
-                .intro-text {{ margin-top: 20px; font-size: 13px; line-height: 1.5; color: #333; }}
-                table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-                th, td {{ border: 1px solid #ccc; padding: 8px; text-align: center; font-size: 12px; }}
-                th {{ background-color: #f2f2f2; }}
-                .signature {{ margin-top: 30px; font-size: 13px; font-weight: bold; color: #111; }}
+                .intro-text {{ 
+                    margin-top: 20px; 
+                    font-family: Arial, sans-serif; 
+                    font-size: 12px; 
+                    line-height: 1.6; 
+                    color: #333; 
+                    text-align: left; 
+                }}
+                h3 {{
+                    font-family: Arial, sans-serif;
+                    font-size: 14px;
+                    text-align: left;
+                    margin-top: 25px;
+                }}
+                table {{ 
+                    width: 100%; 
+                    min-width: 650px;
+                    border-collapse: collapse; 
+                    margin-top: 20px; 
+                    text-align: left; 
+                }}
+                th, td {{ 
+                    border: 1px solid #bbb; 
+                    padding: 12px 15px; 
+                    text-align: left; 
+                    font-family: Arial, sans-serif; 
+                    font-size: 12px; 
+                }}
+                th {{ 
+                    background-color: #f2f2f2; 
+                    font-weight: bold;
+                }}
+                p {{
+                    font-family: Arial, sans-serif;
+                    font-size: 12px;
+                    text-align: left;
+                }}
+                .signature {{ 
+                    margin-top: 35px; 
+                    font-family: Arial, sans-serif;
+                    font-size: 12px; 
+                    font-weight: bold; 
+                    color: #111; 
+                    text-align: left; 
+                }}
             </style>
         </head>
         <body>
@@ -673,11 +731,11 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
         )
 
 # ---------------------------------------------------------
-# 7. REGISTRO MANUAL DETALLADO DE PEDIDOS
+# 7. REGISTRO MANUAL DETALLADO DE PEDIDOS (CONECTADO A LOGÍSTICA Y COBRANZA)
 # ---------------------------------------------------------
 elif menu == "📋 Registro Manual Detallado de Pedidos":
     st.title("📋 Registro Manual de Pedidos y Trazabilidad")
-    st.write("Ingresa de forma manual los datos completos de un pedido, incluyendo número, responsable, recepción y notas importantes.")
+    st.write("Ingresa de forma manual los datos completos de un pedido. Esto se reflejará automáticamente en Logística, Cobranza y Gerencia.")
 
     conn = sqlite3.connect(DB_NAME)
     df_cli_m = pd.read_sql("SELECT DISTINCT matriz FROM clientes", conn)
@@ -705,13 +763,20 @@ elif menu == "📋 Registro Manual Detallado de Pedidos":
             if nro_ped_m and realizado_por_m:
                 conn = sqlite3.connect(DB_NAME)
                 cursor = conn.cursor()
+                
                 cursor.execute("""
                     INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', ?)
                 """, (nro_ped_m.upper(), cliente_m, "Sucursal Principal", realizado_por_m, atendido_por_m, recibido_por_m, datos_imp_m, str(fecha_ped_m), monto_m, monto_m * 0.7, monto_m * 0.3, json.dumps([])))
+                
+                cursor.execute("""
+                    INSERT INTO cobranza (nro_factura, cliente, fecha_emision, fecha_vencimiento, monto_factura, monto_pagado, estatus_pago)
+                    VALUES (?, ?, ?, ?, ?, 0.0, 'Pendiente')
+                """, (f"FAC-{nro_ped_m.upper()}", cliente_m, str(fecha_ped_m), str(fecha_ped_m + pd.Timedelta(days=15)), monto_m))
+
                 conn.commit()
                 conn.close()
-                st.success(f"¡El pedido manual {nro_ped_m} ha sido registrado exitosamente!")
+                st.success(f"¡El pedido manual {nro_ped_m} ha sido registrado y enviado a Logística y Cobranza exitosamente!")
                 st.rerun()
             else:
                 st.error("Por favor completa al menos el Número de Pedido y Quién lo realizó.")
