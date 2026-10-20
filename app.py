@@ -11,7 +11,7 @@ import urllib.request
 # CONFIGURACIÓN DE PÁGINA CORPORATIVA
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B con Embudo de Ventas Elite",
+    page_title="Frumix C.A. - ERP B2B con Gestión de Sucursales",
     page_icon="🍓",
     layout="wide",
 )
@@ -30,15 +30,15 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# BASE DE DATOS RELACIONAL CON EMBUDO DE VENTAS (SQLITE)
+# BASE DE DATOS RELACIONAL CON GESTIÓN DE SUCURSALES (SQLITE)
 # ---------------------------------------------------------
-DB_NAME = "frumix_embudo_elite.db"
+DB_NAME = "frumix_sucursales_elite.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    # 1. Clientes y Cuentas Clave
+    # 1. Clientes (Matrices y Sucursales Dinámicas)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,7 +128,7 @@ def init_db():
         )
     """)
 
-    # 7. Embudo de Ventas (Sales Funnel) & Pipeline Comercial
+    # 7. Embudo de Ventas (Sales Funnel)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS embudo_ventas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -165,12 +165,13 @@ def init_db():
         """, catalogo_inicial)
         conn.commit()
 
-    # Cargar los 17 Clientes Clave Oficiales
+    # Cargar los 17 Clientes Clave Oficiales con sus Matrices y Sucursales
     cursor.execute("SELECT COUNT(*) FROM clientes")
     if cursor.fetchone()[0] == 0:
         clientes_oficiales = [
             ("BULLKING", "Principal Caracas", "Supermercados", "Tarifa A", "Dupla 1", "+58 412-1111111", "Compras Bullking", 15, 12000.0, "2026-10-10"),
             ("CENTRAL MADERENSE", "Sucursal Este", "Supermercados", "Tarifa A", "Dupla 1", "+58 412-2222222", "Juan Pérez", 30, 20000.0, "2026-09-15"),
+            ("CENTRAL MADERENSE", "Sucursal Centro", "Supermercados", "Tarifa A", "Dupla 1", "+58 412-2222223", "María López", 30, 20000.0, "2026-09-20"),
             ("SUPERMERCADO EUROS", "La Candelaria", "Supermercados", "Tarifa B", "Dupla 2", "+58 412-3333333", "Ana Gómez", 15, 8000.0, "2026-10-18"),
             ("LADIMIR", "Mercado Mayor", "Mayorista", "Tarifa A", "Dupla 3", "+58 412-4444444", "Carlos Ladimir", 7, 15000.0, "2026-08-01"),
             ("SUPERMERCADOS LUXOR", "Boleíta", "Supermercados", "Tarifa B", "Dupla 2", "+58 412-5555555", "Luis Luxor", 15, 10000.0, "2026-10-01"),
@@ -204,15 +205,8 @@ EMPRESA = {
     "telefono": "+58 412-FRUMIX1",
 }
 
-CLIENTES_NOMBRES = [
-    "BULLKING", "CENTRAL MADERENSE", "SUPERMERCADO EUROS", "LADIMIR", 
-    "SUPERMERCADOS LUXOR", "MERCATO", "PLAN SUAREZ", "RIO CARACAS", 
-    "RIO MARGARITA", "RIO VIDA", "SIGO", "TIERRA SANTA", 
-    "SUPER 900", "TODO HOGAR", "VIVA", "WILMER", "PARAMO COLD 2024"
-]
-
 # ---------------------------------------------------------
-# MENÚ LATERAL ERP CON EMBUDO DE VENTAS
+# MENÚ LATERAL ERP CON GESTIÓN DE SUCURSALES
 # ---------------------------------------------------------
 st.sidebar.markdown(f"### 🍓 {EMPRESA['nombre']}")
 st.sidebar.markdown(f"**RIF:** {EMPRESA['rif']}")
@@ -222,13 +216,13 @@ menu = st.sidebar.radio(
     "Módulos ERP Enterprise Elite:",
     [
         "📊 Dashboard Gerencial & P&L",
+        "🏢 Gestión de Clientes (Matrices y Sucursales)",
         "🎯 Embudo de Ventas (Sales Funnel)",
         "🛒 Ventas & Cotizador Pro (PDF/HTML)",
         "💰 Departamento de Cobranza & CxC",
         "🚚 Logística, Despacho & Rutas",
         "💲 Matriz Dinámica de Precios (Caja a KG)",
         "🗑️ Control de Mermas & Pérdidas",
-        "📋 Cartera de Clientes (17 Key Accounts)",
         "📦 Registro y Estatus de Pedidos",
     ],
 )
@@ -283,11 +277,81 @@ if menu == "📊 Dashboard Gerencial & P&L":
         """)
 
 # ---------------------------------------------------------
-# 2. EMBUDO DE VENTAS (SALES FUNNEL)
+# 2. GESTIÓN DE CLIENTES (MATRICES Y SUCURSALES)
+# ---------------------------------------------------------
+elif menu == "🏢 Gestión de Clientes (Matrices y Sucursales)":
+    st.title("🏢 Directorio y Gestión de Clientes (Matrices y Sucursales)")
+    st.write("Agrega, edita o elimina matrices comerciales y sus respectivas sucursales en tiempo real.")
+
+    tab_cli1, tab_cli2 = st.tabs(["📋 Directorio Completo de Sucursales", "➕ Agregar Nueva Matriz o Sucursal"])
+
+    with tab_cli1:
+        conn = sqlite3.connect(DB_NAME)
+        df_clientes = pd.read_sql("SELECT * FROM clientes", conn)
+        conn.close()
+
+        if not df_clientes.empty:
+            st.dataframe(df_clientes, use_container_width=True)
+
+            st.markdown("---")
+            st.subheader("🗑️ Eliminar Sucursal del Sistema")
+            id_eliminar = st.selectbox("Seleccione ID de la sucursal a eliminar:", df_clientes["id"].tolist())
+            suc_sel_row = df_clientes[df_clientes["id"] == id_eliminar].iloc[0]
+            st.warning(Va a eliminar la sucursal **{suc_sel_row['sucursal']}** de la matriz **{suc_sel_row['matriz']}**.)
+
+            if st.button("🗑️ Confirmar y Eliminar Sucursal"):
+                conn = sqlite3.connect(DB_NAME)
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM clientes WHERE id = ?", (int(id_eliminar),))
+                conn.commit()
+                conn.close()
+                st.success("¡Sucursal eliminada con éxito!")
+                st.rerun()
+        else:
+            st.info("No hay sucursales registradas.")
+
+    with tab_cli2:
+        with st.form("form_nueva_sucursal"):
+            st.subheader("Registrar Nueva Sucursal / Cliente")
+            c_s1, c_s2 = st.columns(2)
+            with c_s1:
+                matriz_n = st.text_input("Empresa Matriz (Ej. CENTRAL MADERENSE)")
+                sucursal_n = st.text_input("Nombre de la Sucursal (Ej. Sucursal Las Mercedes)")
+                segmento_n = st.selectbox("Segmento", ["Supermercados", "Mayorista", "Minimarket", "HORECA", "Comercial"])
+                tarifa_n = st.selectbox("Tarifa Asignada", ["Tarifa A", "Tarifa B", "Tarifa C"])
+            with c_s2:
+                dupla_n = st.selectbox("Dupla Comercial", ["Dupla 1 (Oriente-Centro)", "Dupla 2 (Capital)", "Dupla 3 (Occidente)"])
+                telefono_n = st.text_input("Teléfono de Contacto", value="+58 412-")
+                contacto_n = st.text_input("Nombre del Comprador / Encargado")
+                cred_dias = st.number_input("Días de Crédito", min_value=1, value=15)
+                cred_monto = st.number_input("Límite de Crédito ($)", min_value=0.0, value=10000.0)
+
+            if st.form_submit_button("Guardar Sucursal en el Directorio"):
+                if matriz_n and sucursal_n:
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO clientes (matriz, sucursal, segmento, tarifa, dupla, telefono, contacto, limite_credito_dias, limite_credito_dolares, ultimo_pedido)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (matriz_n.upper(), sucursal_n.upper(), segmento_n, tarifa_n, dupla_n, telefono_n, contacto_n, int(cred_dias), cred_monto, str(date.today())))
+                    conn.commit()
+                    conn.close()
+                    st.success("¡Matriz y sucursal agregadas exitosamente al sistema!")
+                    st.rerun()
+                else:
+                    st.error("Por favor completa al menos la Empresa Matriz y la Sucursal.")
+
+# ---------------------------------------------------------
+# 3. EMBUDO DE VENTAS (SALES FUNNEL)
 # ---------------------------------------------------------
 elif menu == "🎯 Embudo de Ventas (Sales Funnel)":
     st.title("🎯 Embudo de Ventas y Seguimiento Comercial B2B")
     st.write("Gestiona las oportunidades comerciales desde la prospección de espacios en anaquel hasta el cierre del pedido.")
+
+    conn = sqlite3.connect(DB_NAME)
+    df_cli_list = pd.read_sql("SELECT DISTINCT matriz FROM clientes", conn)
+    conn.close()
+    lista_matrices_activas = df_cli_list["matriz"].tolist() if not df_cli_list.empty else CLIENTES_NOMBRES
 
     tab_f1, tab_f2 = st.tabs(["📊 Embudos Activos por Fases", "➕ Registrar Nueva Oportunidad en el Embudo"])
 
@@ -327,7 +391,7 @@ elif menu == "🎯 Embudo de Ventas (Sales Funnel)":
             c_e1, c_e2 = st.columns(2)
             with c_e1:
                 negocio_n = st.text_input("Nombre de la Oportunidad (Ej. Espacio anaquel manzanas Gala)")
-                cliente_n = st.selectbox("Cliente Key Account", CLIENTES_NOMBRES)
+                cliente_n = st.selectbox("Cliente Matriz", lista_matrices_activas)
                 etapa_n = st.selectbox("Fase Inicial", ["1. Prospección / Lead", "2. Visita y Muestras", "3. Cotización Emitida", "4. Negociación y Crédito"])
             with c_e2:
                 valor_n = st.number_input("Valor Estimado de Venta ($)", min_value=0.0, value=1500.0)
@@ -347,31 +411,35 @@ elif menu == "🎯 Embudo de Ventas (Sales Funnel)":
                 st.rerun()
 
 # ---------------------------------------------------------
-# 3. DEPARTAMENTO DE VENTAS & COTIZADOR PRO
+# 4. DEPARTAMENTO DE VENTAS & COTIZADOR PRO
 # ---------------------------------------------------------
 elif menu == "🛒 Ventas & Cotizador Pro (PDF/HTML)":
     st.title("🛒 Departamento de Ventas - Cotizador B2B de Alta Eficiencia")
-    st.write("Generación rápida de cotizaciones con cálculo automático de precio por peso y evaluación de límites de crédito.")
+    st.write("Generación rápida de cotizaciones seleccionando matriz y sucursal registrada.")
 
     conn = sqlite3.connect(DB_NAME)
     df_mat = pd.read_sql("SELECT * FROM matriz_precios", conn)
     df_cli_db = pd.read_sql("SELECT * FROM clientes", conn)
     conn.close()
 
+    lista_matrices = df_cli_db["matriz"].unique().tolist() if not df_cli_db.empty else ["BULLKING"]
+
     c_v1, c_v2 = st.columns(2)
     with c_v1:
-        cli_sel = st.selectbox("Empresa Aliada (Key Account)", CLIENTES_NOMBRES)
-        suc_sel = st.text_input("Sucursal Destino", value="Principal Caracas")
+        cli_sel = st.selectbox("Empresa Matriz", lista_matrices)
+        # Filtrar sucursales de la matriz seleccionada
+        sucursales_disponibles = df_cli_db[df_cli_db["matriz"] == cli_sel]["sucursal"].tolist() if not df_cli_db.empty else ["Principal"]
+        suc_sel = st.selectbox("Sucursal Específica", sucursales_disponibles)
     with c_v2:
         asesor_sel = st.selectbox("Asesor / Dupla Comercial", ["Dupla 1 (Oriente-Centro)", "Dupla 2 (Capital)", "Dupla 3 (Occidente)"])
         vig_sel = st.date_input("Validez de la Oferta:", value=date.today() + pd.Timedelta(days=7))
 
     # Evaluación de crédito del cliente
-    cli_info = df_cli_db[df_cli_db["matriz"] == cli_sel]
+    cli_info = df_cli_db[(df_cli_db["matriz"] == cli_sel) & (df_cli_db["sucursal"] == suc_sel)]
     if not cli_info.empty:
         l_cred = cli_info.iloc[0]["limite_credito_dolares"]
         l_dias = cli_info.iloc[0]["limite_credito_dias"]
-        st.info(f"💳 **Límite de Crédito de {cli_sel}:** ${l_cred:,.2f} USD | **Plazo Acordado:** {l_dias} días")
+        st.info(f"💳 **Límite de Crédito ({cli_sel} - {suc_sel}):** ${l_cred:,.2f} USD | **Plazo Acordado:** {l_dias} días")
 
     st.markdown("---")
     st.subheader("📋 Modifique Precios por Caja (El Precio por KG y el Subtotal se recalculan automáticamente):")
@@ -380,7 +448,7 @@ elif menu == "🛒 Ventas & Cotizador Pro (PDF/HTML)":
         df_editor_v = df_mat[["codigo", "barra", "descripcion", "empaque_kg", "costo_caja", "precio_caja", "precio_kg"]].copy()
         df_editor_v.columns = ["CÓDIGO", "BARRA", "DESCRIPCIÓN", "EMPAQUE/KG", "COSTO CAJA ($)", "PRECIO CAJA ($)", "PRECIO POR KG ($)"]
 
-        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_funnel")
+        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_sucursal_dinamica")
 
         # Recálculo automático de Precio por KG
         df_editado_venta["PRECIO POR KG ($)"] = df_editado_venta.apply(
@@ -404,12 +472,11 @@ elif menu == "🛒 Ventas & Cotizador Pro (PDF/HTML)":
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', 'Caracas Centro', 'Flota Interna', ?)
             """, (nro_p, cli_sel, suc_sel, asesor_sel, str(date.today()), monto_aprox, costo_aprox, ganancia_aprox, det_json))
             
-            # Actualizar fecha de último pedido del cliente
-            cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ?", (str(date.today()), cli_sel))
+            cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ? AND sucursal = ?", (str(date.today()), cli_sel, suc_sel))
             conn.commit()
             conn.close()
 
-            st.success(f"¡Pedido {nro_p} procesado con éxito para {cli_sel}!")
+            st.success(f"¡Pedido {nro_p} procesado con éxito para {cli_sel} ({suc_sel})!")
 
     # Generación de HTML/PDF Imprimible
     st.markdown("---")
@@ -438,7 +505,7 @@ elif menu == "🛒 Ventas & Cotizador Pro (PDF/HTML)":
                 </div>
                 <div style="text-align: right;">
                     <strong>Fecha:</strong> {date.today()}<br>
-                    <strong>Cliente:</strong> {cli_sel} ({suc_sel})<br>
+                    <strong>Cliente:</strong> {cli_sel} - {suc_sel}<br>
                     <strong>Dupla:</strong> {asesor_sel}
                 </div>
             </div>
@@ -464,16 +531,21 @@ elif menu == "🛒 Ventas & Cotizador Pro (PDF/HTML)":
         st.download_button(
             label="💾 Descargar Cotización en HTML para Imprimir / WhatsApp",
             data=html_doc,
-            file_name=f"Cotizacion_{cli_sel.replace(' ', '_')}.html",
+            file_name=f"Cotizacion_{cli_sel.replace(' ', '_')}_{suc_sel.replace(' ', '_')}.html",
             mime="text/html"
         )
 
 # ---------------------------------------------------------
-# 4. DEPARTAMENTO DE COBRANZA & CxC
+# 5. DEPARTAMENTO DE COBRANZA & CxC
 # ---------------------------------------------------------
 elif menu == "💰 Departamento de Cobranza & CxC":
     st.title("💰 Departamento de Cobranza - Cuentas por Cobrar y Morosidad")
     st.write("Control exhaustivo de facturas, plazos de crédito, abonos y alertas automáticas de pago.")
+
+    conn = sqlite3.connect(DB_NAME)
+    df_cli_list = pd.read_sql("SELECT DISTINCT matriz FROM clientes", conn)
+    conn.close()
+    lista_matrices_cobro = df_cli_list["matriz"].tolist() if not df_cli_list.empty else CLIENTES_NOMBRES
 
     tab_c1, tab_c2, tab_c3 = st.tabs(["📋 Estado de Cuenta y Facturas", "➕ Registrar Factura / Crédito", "⚠️ Alertas Reales (Morosidad e Inactividad)"])
 
@@ -509,11 +581,11 @@ elif menu == "💰 Departamento de Cobranza & CxC":
             st.info("No hay facturas registradas en el sistema de cobranza.")
 
     with tab_c2:
-        with st.form("form_reg_cxc_funnel"):
+        with st.form("form_reg_cxc_sucursal"):
             c_f1, c_f2 = st.columns(2)
             with c_f1:
                 nro_fac = st.text_input("Nro. de Factura (Ej. FAC-2026-001)", value="FAC-2026-")
-                cli_fac = st.selectbox("Cliente Matriz", CLIENTES_NOMBRES)
+                cli_fac = st.selectbox("Cliente Matriz", lista_matrices_cobro)
                 monto_fac = st.number_input("Monto Total Facturado ($)", min_value=0.0, value=500.0)
             with c_f2:
                 f_emi = st.date_input("Fecha de Emisión", value=date.today())
@@ -543,7 +615,6 @@ elif menu == "💰 Departamento de Cobranza & CxC":
 
         hoy_dt = date.today()
 
-        # 1. Alerta de Facturas Vencidas
         if not df_cxc_alert.empty:
             df_cxc_alert["vence_dt"] = pd.to_datetime(df_cxc_alert["fecha_vencimiento"]).dt.date
             vencidas = df_cxc_alert[(df_cxc_alert["vence_dt"] < hoy_dt) & (df_cxc_alert["estatus_pago"] != "Pagado")]
@@ -555,7 +626,6 @@ elif menu == "💰 Departamento de Cobranza & CxC":
                 st.success("✅ No existen facturas vencidas en este momento.")
 
         st.markdown("---")
-        # 2. Alerta de Inactividad de Clientes
         dias_limite_inactividad = st.slider("Días límite sin pedidos para alerta comercial:", min_value=1, max_value=60, value=14)
         
         if not df_cli_alert.empty:
@@ -582,7 +652,7 @@ elif menu == "💰 Departamento de Cobranza & CxC":
                 st.success(f"✅ Todos los clientes han comprado dentro del margen de {dias_limite_inactividad} días.")
 
 # ---------------------------------------------------------
-# 5. LOGÍSTICA, DESPACHO & RUTAS
+# 6. LOGÍSTICA, DESPACHO & RUTAS
 # ---------------------------------------------------------
 elif menu == "🚚 Logística, Despacho & Rutas":
     st.title("🚚 Logística, Despacho y Trazabilidad de Cámaras de Frío")
@@ -634,7 +704,7 @@ elif menu == "🚚 Logística, Despacho & Rutas":
             st.info("No hay pedidos registrados para despachar.")
 
 # ---------------------------------------------------------
-# 6. MATRIZ DINÁMICA DE PRECIOS (CAJA A KG)
+# 7. MATRIZ DINÁMICA DE PRECIOS (CAJA A KG)
 # ---------------------------------------------------------
 elif menu == "💲 Matriz Dinámica de Precios (Caja a KG)":
     st.title("💲 Matriz de Precios - Conversión Automática Caja a Kilogramo")
@@ -648,7 +718,7 @@ elif menu == "💲 Matriz Dinámica de Precios (Caja a KG)":
         df_m_edit = df_m[["id", "codigo", "descripcion", "empaque_kg", "costo_caja", "precio_caja"]].copy()
         df_m_edit.columns = ["ID", "CÓDIGO", "DESCRIPCIÓN", "EMPAQUE/KG", "COSTO CAJA ($)", "PRECIO CAJA ($)"]
 
-        df_resultado = st.data_editor(df_m_edit, use_container_width=True, key="matriz_funnel")
+        df_resultado = st.data_editor(df_m_edit, use_container_width=True, key="matriz_sucursal")
 
         df_resultado["PRECIO POR KG ($)"] = df_resultado.apply(
             lambda r: round(r["PRECIO CAJA ($)"] / r["EMPAQUE/KG"], 2) if r["EMPAQUE/KG"] > 0 else 0.0, axis=1
@@ -676,7 +746,7 @@ elif menu == "💲 Matriz Dinámica de Precios (Caja a KG)":
             st.rerun()
 
 # ---------------------------------------------------------
-# 7. CONTROL DE MERMAS & PÉRDIDAS
+# 8. CONTROL DE MERMAS & PÉRDIDAS
 # ---------------------------------------------------------
 elif menu == "🗑️ Control de Mermas & Pérdidas":
     st.title("🗑️ Control de Mermas y Pérdidas Financieras Directas")
@@ -687,7 +757,7 @@ elif menu == "🗑️ Control de Mermas & Pérdidas":
     conn.close()
 
     if not df_inv_m.empty:
-        with st.form("form_merma_funnel"):
+        with st.form("form_merma_sucursal"):
             lote_opts = [f"ID: {r['id']} | Lote: {r['lote']} - {r['producto']} (Costo Caja: ${r['costo_unitario_caja']})" for _, r in df_inv_m.iterrows()]
             sel_l_merma = st.selectbox("Seleccione el Lote Afectado:", lote_opts)
             cant_p = st.number_input("Cajas Perdidas por Merma", min_value=0.5, value=1.0)
@@ -713,22 +783,6 @@ elif menu == "🗑️ Control de Mermas & Pérdidas":
                 st.rerun()
     else:
         st.warning("No hay lotes disponibles en inventario para registrar mermas.")
-
-# ---------------------------------------------------------
-# 8. CARTERA DE CLIENTES (17 KEY ACCOUNTS)
-# ---------------------------------------------------------
-elif menu == "📋 Cartera de Clientes (17 Key Accounts)":
-    st.title("📋 Cartera Oficial de Clientes (17 Aliados Comerciales)")
-    st.write("Directorio corporativo, límites de crédito en divisas y plazos asignados a cada cadena.")
-    
-    conn = sqlite3.connect(DB_NAME)
-    df_cli = pd.read_sql("SELECT * FROM clientes", conn)
-    conn.close()
-
-    if not df_cli.empty:
-        st.dataframe(df_cli, use_container_width=True)
-    else:
-        st.info("No hay clientes registrados en el sistema.")
 
 # ---------------------------------------------------------
 # 9. REGISTRO Y ESTATUS DE PEDIDOS
