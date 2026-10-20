@@ -32,7 +32,7 @@ threading.Thread(target=keep_alive, daemon=True).start()
 # ---------------------------------------------------------
 # BASE DE DATOS RELACIONAL INTEGRAL (SQLITE)
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_definitivo_v5.db"
+DB_NAME = "frumix_enterprise_definitivo_v6.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -71,21 +71,22 @@ def init_db():
         )
     """)
     
-    # 3. Pedidos y Despachos Comerciales
+    # 3. Pedidos y Despachos Comerciales (Con datos manuales detallados)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS pedidos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nro_pedido TEXT,
             cliente TEXT,
             sucursal TEXT,
+            realizado_por TEXT,
             atendido_por TEXT,
+            recibido_por TEXT,
+            datos_importantes TEXT,
             fecha_pedido TEXT,
             monto_total REAL,
             costo_total REAL,
             ganancia_estimada REAL,
             estatus_despacho TEXT,
-            zona_envio TEXT,
-            transporte TEXT,
             detalle_json TEXT
         )
     """)
@@ -222,6 +223,7 @@ menu = st.sidebar.radio(
         "📈 Métricas de Pedidos (Diarios/Semanales)",
         "🎯 Embudo de Ventas (Sales Funnel)",
         "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)",
+        "📋 Registro Manual Detallado de Pedidos",
         "💰 Departamento de Cobranza & CxC",
         "🚚 Logística, Despacho & Rutas",
         "💲 Matriz Dinámica de Precios (Caja a KG)",
@@ -564,14 +566,11 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
     st.subheader("📋 Cuadro de Precios (Edita la columna 'PRECIO CAJA ($)'):")
 
     if not df_mat.empty:
-        # Preparamos el DataFrame limpio para el cuadro tabular
         df_editor_v = df_mat[["codigo", "barra", "descripcion", "calibre", "empaque_kg", "costo_caja", "precio_caja"]].copy()
         df_editor_v.columns = ["CÓDIGO", "BARRA", "DESCRIPCIÓN", "CALIBRE", "EMPAQUE/KG", "COSTO CAJA ($)", "PRECIO CAJA ($)"]
 
-        # Cuadro tabular interactivo estilo Excel
         df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra")
 
-        # Fórmula matemática instantánea basada en los cambios de la tabla
         df_editado_venta["PRECIO POR KG ($)"] = df_editado_venta.apply(
             lambda r: round(r["PRECIO CAJA ($)"] / r["EMPAQUE/KG"], 2) if r["EMPAQUE/KG"] > 0 else 0.0, axis=1
         )
@@ -591,9 +590,9 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO pedidos (nro_pedido, cliente, sucursal, atendido_por, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, zona_envio, transporte, detalle_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', 'Caracas Centro', 'Flota Interna', ?)
-            """, (nro_p, cli_sel, suc_sel, asesor_asignado, str(date.today()), monto_aprox, costo_aprox, ganancia_aprox, det_json))
+                INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', ?)
+            """, (nro_p, cli_sel, suc_sel, "Sistema Cotizador", asesor_asignado, "Cliente Final", "Generado desde Cotizador Pro", str(date.today()), monto_aprox, costo_aprox, ganancia_aprox, det_json))
             
             cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ? AND sucursal = ?", (str(date.today()), cli_sel, suc_sel))
             conn.commit()
@@ -674,7 +673,51 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
         )
 
 # ---------------------------------------------------------
-# 7. DEPARTAMENTO DE COBRANZA & CxC
+# 7. REGISTRO MANUAL DETALLADO DE PEDIDOS
+# ---------------------------------------------------------
+elif menu == "📋 Registro Manual Detallado de Pedidos":
+    st.title("📋 Registro Manual de Pedidos y Trazabilidad")
+    st.write("Ingresa de forma manual los datos completos de un pedido, incluyendo número, responsable, recepción y notas importantes.")
+
+    conn = sqlite3.connect(DB_NAME)
+    df_cli_m = pd.read_sql("SELECT DISTINCT matriz FROM clientes", conn)
+    conn.close()
+    lista_mat_ped = df_cli_m["matriz"].tolist() if not df_cli_m.empty else ["BULLKING"]
+
+    with st.form("form_registro_pedido_manual"):
+        st.subheader("📝 Datos Generales del Pedido")
+        c_pm1, c_pm2 = st.columns(2)
+        with c_pm1:
+            nro_ped_m = st.text_input("Nro. de Pedido (Ej. PED-2026-001)", value="PED-2026-")
+            cliente_m = st.selectbox("Cliente Matriz", lista_mat_ped)
+            realizado_por_m = st.text_input("¿Quién realizó el pedido? (Ej. Comprador / Encargado)")
+        with c_pm2:
+            atendido_por_m = st.selectbox("¿Quién despachó / Asesor?", ["Ladimir (Occidente)", "Tufic (Capital)", "Wilmer (Oriente)"])
+            recibido_por_m = st.text_input("¿Quién recibió en destino?")
+            monto_m = st.number_input("Monto Total del Pedido ($)", min_value=0.0, value=1000.0)
+
+        st.markdown("---")
+        st.subheader("📌 Datos Importantes y Observaciones")
+        datos_imp_m = st.text_area("Notas importantes (Ej. Horario de entrega, transporte asignado, condiciones especiales de pago o anaquel):")
+        fecha_ped_m = st.date_input("Fecha del Pedido", value=date.today())
+
+        if st.form_submit_button("💾 Guardar Pedido Manualmente"):
+            if nro_ped_m and realizado_por_m:
+                conn = sqlite3.connect(DB_NAME)
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', ?)
+                """, (nro_ped_m.upper(), cliente_m, "Sucursal Principal", realizado_por_m, atendido_por_m, recibido_por_m, datos_imp_m, str(fecha_ped_m), monto_m, monto_m * 0.7, monto_m * 0.3, json.dumps([])))
+                conn.commit()
+                conn.close()
+                st.success(f"¡El pedido manual {nro_ped_m} ha sido registrado exitosamente!")
+                st.rerun()
+            else:
+                st.error("Por favor completa al menos el Número de Pedido y Quién lo realizó.")
+
+# ---------------------------------------------------------
+# 8. DEPARTAMENTO DE COBRANZA & CxC
 # ---------------------------------------------------------
 elif menu == "💰 Departamento de Cobranza & CxC":
     st.title("💰 Departamento de Cobranza - Cuentas por Cobrar y Morosidad")
@@ -747,7 +790,7 @@ elif menu == "💰 Departamento de Cobranza & CxC":
                 st.success("✅ No hay facturas vencidas.")
 
 # ---------------------------------------------------------
-# 8. LOGÍSTICA, DESPACHO & RUTAS
+# 9. LOGÍSTICA, DESPACHO & RUTAS
 # ---------------------------------------------------------
 elif menu == "🚚 Logística, Despacho & Rutas":
     st.title("🚚 Logística y Estatus de Despachos")
@@ -771,7 +814,7 @@ elif menu == "🚚 Logística, Despacho & Rutas":
         st.info("No hay pedidos para despachar.")
 
 # ---------------------------------------------------------
-# 9. MATRIZ DINÁMICA DE PRECIOS
+# 10. MATRIZ DINÁMICA DE PRECIOS
 # ---------------------------------------------------------
 elif menu == "💲 Matriz Dinámica de Precios (Caja a KG)":
     st.title("💲 Matriz de Precios - Conversión Caja a Kilogramo")
@@ -801,7 +844,7 @@ elif menu == "💲 Matriz Dinámica de Precios (Caja a KG)":
             st.rerun()
 
 # ---------------------------------------------------------
-# 10. CONTROL DE MERMAS & PÉRDIDAS
+# 11. CONTROL DE MERMAS & PÉRDIDAS
 # ---------------------------------------------------------
 elif menu == "🗑️ Control de Mermas & Pérdidas":
     st.title("🗑️ Control de Mermas y Pérdidas Financieras")
@@ -834,7 +877,7 @@ elif menu == "🗑️ Control de Mermas & Pérdidas":
                 st.rerun()
 
 # ---------------------------------------------------------
-# 11. HISTORIAL COMPLETO DE PEDIDOS
+# 12. HISTORIAL COMPLETO DE PEDIDOS
 # ---------------------------------------------------------
 elif menu == "📋 Historial Completo de Pedidos":
     st.title("📋 Historial y Fidelidad Histórica de Pedidos B2B")
