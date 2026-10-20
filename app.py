@@ -11,7 +11,7 @@ import urllib.request
 # CONFIGURACIÓN DE PÁGINA CORPORATIVA
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B con Gestión de Sucursales",
+    page_title="Frumix C.A. - ERP B2B con Logo Oficial",
     page_icon="🍓",
     layout="wide",
 )
@@ -165,7 +165,7 @@ def init_db():
         """, catalogo_inicial)
         conn.commit()
 
-    # Cargar los 17 Clientes Clave Oficiales con sus Matrices y Sucursales
+    # Cargar los Clientes Oficiales con sus Matrices y Sucursales
     cursor.execute("SELECT COUNT(*) FROM clientes")
     if cursor.fetchone()[0] == 0:
         clientes_oficiales = [
@@ -206,7 +206,7 @@ EMPRESA = {
 }
 
 # ---------------------------------------------------------
-# MENÚ LATERAL ERP CON GESTIÓN DE SUCURSALES
+# MENÚ LATERAL ERP CON GESTIÓN DE SUCURSALES Y LOGO
 # ---------------------------------------------------------
 st.sidebar.markdown(f"### 🍓 {EMPRESA['nombre']}")
 st.sidebar.markdown(f"**RIF:** {EMPRESA['rif']}")
@@ -297,7 +297,7 @@ elif menu == "🏢 Gestión de Clientes (Matrices y Sucursales)":
             st.subheader("🗑️ Eliminar Sucursal del Sistema")
             id_eliminar = st.selectbox("Seleccione ID de la sucursal a eliminar:", df_clientes["id"].tolist())
             suc_sel_row = df_clientes[df_clientes["id"] == id_eliminar].iloc[0]
-            st.warning(Va a eliminar la sucursal **{suc_sel_row['sucursal']}** de la matriz **{suc_sel_row['matriz']}**.)
+            st.warning(f"Va a eliminar la sucursal **{suc_sel_row['sucursal']}** de la matriz **{suc_sel_row['matriz']}**.")
 
             if st.button("🗑️ Confirmar y Eliminar Sucursal"):
                 conn = sqlite3.connect(DB_NAME)
@@ -351,7 +351,7 @@ elif menu == "🎯 Embudo de Ventas (Sales Funnel)":
     conn = sqlite3.connect(DB_NAME)
     df_cli_list = pd.read_sql("SELECT DISTINCT matriz FROM clientes", conn)
     conn.close()
-    lista_matrices_activas = df_cli_list["matriz"].tolist() if not df_cli_list.empty else CLIENTES_NOMBRES
+    lista_matrices_activas = df_cli_list["matriz"].tolist() if not df_cli_list.empty else ["BULLKING"]
 
     tab_f1, tab_f2 = st.tabs(["📊 Embudos Activos por Fases", "➕ Registrar Nueva Oportunidad en el Embudo"])
 
@@ -411,7 +411,7 @@ elif menu == "🎯 Embudo de Ventas (Sales Funnel)":
                 st.rerun()
 
 # ---------------------------------------------------------
-# 4. DEPARTAMENTO DE VENTAS & COTIZADOR PRO
+# 4. DEPARTAMENTO DE VENTAS & COTIZADOR PRO (CON LOGO REAL)
 # ---------------------------------------------------------
 elif menu == "🛒 Ventas & Cotizador Pro (PDF/HTML)":
     st.title("🛒 Departamento de Ventas - Cotizador B2B de Alta Eficiencia")
@@ -427,14 +427,12 @@ elif menu == "🛒 Ventas & Cotizador Pro (PDF/HTML)":
     c_v1, c_v2 = st.columns(2)
     with c_v1:
         cli_sel = st.selectbox("Empresa Matriz", lista_matrices)
-        # Filtrar sucursales de la matriz seleccionada
         sucursales_disponibles = df_cli_db[df_cli_db["matriz"] == cli_sel]["sucursal"].tolist() if not df_cli_db.empty else ["Principal"]
         suc_sel = st.selectbox("Sucursal Específica", sucursales_disponibles)
     with c_v2:
         asesor_sel = st.selectbox("Asesor / Dupla Comercial", ["Dupla 1 (Oriente-Centro)", "Dupla 2 (Capital)", "Dupla 3 (Occidente)"])
         vig_sel = st.date_input("Validez de la Oferta:", value=date.today() + pd.Timedelta(days=7))
 
-    # Evaluación de crédito del cliente
     cli_info = df_cli_db[(df_cli_db["matriz"] == cli_sel) & (df_cli_db["sucursal"] == suc_sel)]
     if not cli_info.empty:
         l_cred = cli_info.iloc[0]["limite_credito_dolares"]
@@ -450,7 +448,6 @@ elif menu == "🛒 Ventas & Cotizador Pro (PDF/HTML)":
 
         df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_sucursal_dinamica")
 
-        # Recálculo automático de Precio por KG
         df_editado_venta["PRECIO POR KG ($)"] = df_editado_venta.apply(
             lambda row: round(row["PRECIO CAJA ($)"] / row["EMPAQUE/KG"], 2) if row["EMPAQUE/KG"] > 0 else 0.0, axis=1
         )
@@ -478,10 +475,12 @@ elif menu == "🛒 Ventas & Cotizador Pro (PDF/HTML)":
 
             st.success(f"¡Pedido {nro_p} procesado con éxito para {cli_sel} ({suc_sel})!")
 
-    # Generación de HTML/PDF Imprimible
     st.markdown("---")
     st.subheader("📄 Generar Formato Imprimible / Documento Oficial")
     if st.button("📥 Generar Documento HTML de Cotización"):
+        # Enlace RAW del logo real subido a GitHub
+        logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
+        
         html_doc = f"""
         <html>
         <head>
@@ -489,8 +488,8 @@ elif menu == "🛒 Ventas & Cotizador Pro (PDF/HTML)":
             <title>Cotización Oficial - Frumix C.A.</title>
             <style>
                 body {{ font-family: Arial, sans-serif; margin: 30px; color: #111; }}
-                .header {{ display: flex; justify-content: space-between; border-bottom: 3px solid #6B8E23; padding-bottom: 15px; }}
-                .title {{ font-size: 24px; font-weight: bold; color: #002D62; }}
+                .header {{ display: flex; justify-content: space-between; border-bottom: 3px solid #6B8E23; padding-bottom: 15px; align-items: center; }}
+                .logo {{ max-height: 80px; width: auto; }}
                 table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
                 th, td {{ border: 1px solid #ccc; padding: 8px; text-align: center; font-size: 12px; }}
                 th {{ background-color: #f2f2f2; }}
@@ -499,14 +498,13 @@ elif menu == "🛒 Ventas & Cotizador Pro (PDF/HTML)":
         <body>
             <div class="header">
                 <div>
-                    <div class="title">FRUMIX C.A.</div>
-                    <div>RIF: J-40985632-1 | Caracas, Venezuela</div>
-                    <div>Distribución B2B de Frutas Importadas de Calidad Superior</div>
+                    <img src="{logo_url}" class="logo" alt="Logo Frumix C.A.">
+                    <div style="font-size: 11px; color: #555; margin-top: 5px;">RIF: J-40985632-1 | Caracas, Venezuela</div>
                 </div>
-                <div style="text-align: right;">
+                <div style="text-align: right; font-size: 12px;">
                     <strong>Fecha:</strong> {date.today()}<br>
                     <strong>Cliente:</strong> {cli_sel} - {suc_sel}<br>
-                    <strong>Dupla:</strong> {asesor_sel}
+                    <strong>Asesor:</strong> {asesor_sel}
                 </div>
             </div>
             <h3>Cotización Comercial Oficial</h3>
@@ -545,7 +543,7 @@ elif menu == "💰 Departamento de Cobranza & CxC":
     conn = sqlite3.connect(DB_NAME)
     df_cli_list = pd.read_sql("SELECT DISTINCT matriz FROM clientes", conn)
     conn.close()
-    lista_matrices_cobro = df_cli_list["matriz"].tolist() if not df_cli_list.empty else CLIENTES_NOMBRES
+    lista_matrices_cobro = df_cli_list["matriz"].tolist() if not df_cli_list.empty else ["BULLKING"]
 
     tab_c1, tab_c2, tab_c3 = st.tabs(["📋 Estado de Cuenta y Facturas", "➕ Registrar Factura / Crédito", "⚠️ Alertas Reales (Morosidad e Inactividad)"])
 
