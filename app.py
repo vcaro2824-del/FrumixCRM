@@ -586,7 +586,7 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
         cli_row_sel = df_cli_db[(df_cli_db["matriz"] == cli_sel) & (df_cli_db["sucursal"] == suc_sel)]
         asesor_asignado = cli_row_sel.iloc[0]["dupla"] if not cli_row_sel.empty else "Tufic (Capital)"
         st.info(f"👤 **Asesor / Dupla Asignada:** {asesor_asignado}")
-        vig_sel = st.date_input("Validez de la Oferta:", value=date.today() + pd.Timedelta(days=7))
+        vig_sel = st.date_input("Validez de Precios:", value=date.today() + pd.Timedelta(days=7))
 
     if not cli_row_sel.empty:
         l_cred = cli_row_sel.iloc[0]["limite_credito_dolares"]
@@ -701,7 +701,7 @@ elif menu == "🛒 Ventas & Cotizador Pro (Con Calibres y Logo)":
         html_doc += f"""
             </table>
             <br>
-            <p><strong>Condiciones Comerciales:</strong> Sujeto a disponibilidad en cámaras de frío. Validez de oferta hasta {vig_sel}.</p>
+            <p><strong>Condiciones Comerciales:</strong> Sujeto a disponibilidad en cámaras de frío. Validez de precios hasta {vig_sel}.</p>
             
             <div class="signature-container">
                 <div class="signature">
