@@ -285,12 +285,12 @@ modulos_disponibles = [
     "9. 🛍️ Historial de Compras de Clientes",
     "10. 📈 Métricas y Reportes Comerciales",
     "11. 🎯 Embudo de Ventas (Sales Funnel)",
-    "12. 💰 Cobranza, Crédito y Bloqueo Preventivo",
+    "12. 💰 Cobranza, Facturación (Editar/Eliminar) y Crédito",
     "13. 🚚 Logística y Estatus de Despachos",
     "14. 💲 Matriz Dinámica de Precios (Caja a KG)",
     "15. 🗑️ Control de Mermas & Pérdidas",
     "16. ↩️ Módulo de Devoluciones (Merma o Reingreso)",
-    "17. 📋 Historial Completo de Pedidos & Eliminación con Reversión",
+    "17. 📋 Historial Completo de Pedidos & Edición/Eliminación",
 ]
 
 menu = st.sidebar.radio("Módulos ERP Enterprise Elite V35:", modulos_disponibles)
@@ -777,7 +777,7 @@ elif menu.startswith("4."):
         st.info("No hay productos en el catálogo.")
 
 # ---------------------------------------------------------
-# 5. REGISTRO MANUAL DE FACTURACIÓN (IGUAL QUE PEDIDOS) & CXC
+# 5. REGISTRO MANUAL DE FACTURACIÓN & CXC
 # ---------------------------------------------------------
 elif menu.startswith("5."):
     st.title("📋 Registro Manual de Facturación e Ingreso (Estilo Frumix)")
@@ -1127,41 +1127,83 @@ elif menu.startswith("11."):
         st.info("No hay oportunidades registradas en el embudo de ventas.")
 
 # ---------------------------------------------------------
-# 12. DEPARTAMENTO DE COBRANZA & CRÉDITO
+# 12. COBRANZA, GESTIÓN, EDICIÓN Y ELIMINACIÓN DE FACTURAS
 # ---------------------------------------------------------
 elif menu.startswith("12."):
-    st.title("💰 Departamento de Cobranza - Cuentas por Cobrar y Alertas")
+    st.title("💰 Departamento de Cobranza - Cuentas por Cobrar, Edición y Anulación")
+    st.write("Visualiza, registra abonos, **edita o elimina facturas** de forma directa.")
+
     conn = sqlite3.connect(DB_NAME)
     df_cob = pd.read_sql("SELECT * FROM cobranza", conn)
     conn.close()
 
     if not df_cob.empty:
-        st.dataframe(df_cob, use_container_width=True)
-        csv_cxc = df_cob.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Descargar CxC en Excel (CSV)", csv_cxc, "cxc_frumix.csv", "text/csv")
-        
-        st.markdown("---")
-        st.subheader("💵 Registrar Pago de Factura")
-        with st.form("form_pago_cxc"):
-            fac_pendientes = df_cob[df_cob["estatus_pago"] != "Pagado"]["nro_factura"].tolist() if not df_cob[df_cob["estatus_pago"] != "Pagado"].empty else []
-            fac_sel = st.selectbox("Factura Pendiente", fac_pendientes)
-            if fac_sel:
-                row_f = df_cob[df_cob["nro_factura"] == fac_sel].iloc[0]
-                pendiente = row_f["monto_factura"] - row_f["monto_pagado"]
-                st.info(f"Pendiente: **${pendiente:,.2f} USD**")
-                pago_val = st.number_input("Monto a Abonar ($)", min_value=0.01, max_value=float(pendiente), value=float(pendiente))
-                
-                if st.form_submit_button("Registrar Pago"):
-                    nuevo_pagado = row_f["monto_pagado"] + pago_val
-                    nuevo_est = "Pagado" if nuevo_pagado >= row_f["monto_factura"] else "Parcial"
+        tab_cxc1, tab_cxc2, tab_cxc3 = st.tabs(["📋 Listado General y Pagos", "✏️ Editar Factura", "🗑️ Anular / Eliminar Factura"])
+
+        with tab_cxc1:
+            st.dataframe(df_cob, use_container_width=True)
+            csv_cxc = df_cob.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Descargar CxC en Excel (CSV)", csv_cxc, "cxc_frumix.csv", "text/csv")
+            
+            st.markdown("---")
+            st.subheader("💵 Registrar Pago / Abono de Factura")
+            with st.form("form_pago_cxc"):
+                fac_pendientes = df_cob[df_cob["estatus_pago"] != "Pagado"]["nro_factura"].tolist() if not df_cob[df_cob["estatus_pago"] != "Pagado"].empty else []
+                fac_sel = st.selectbox("Factura Pendiente", fac_pendientes)
+                if fac_sel:
+                    row_f = df_cob[df_cob["nro_factura"] == fac_sel].iloc[0]
+                    pendiente = row_f["monto_factura"] - row_f["monto_pagado"]
+                    st.info(f"Pendiente: **${pendiente:,.2f} USD**")
+                    pago_val = st.number_input("Monto a Abonar ($)", min_value=0.01, max_value=float(pendiente), value=float(pendiente))
                     
+                    if st.form_submit_button("Registrar Abono"):
+                        nuevo_pagado = row_f["monto_pagado"] + pago_val
+                        nuevo_est = "Pagado" if nuevo_pagado >= row_f["monto_factura"] else "Parcial"
+                        
+                        conn = sqlite3.connect(DB_NAME)
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE cobranza SET monto_pagado = ?, estatus_pago = ? WHERE nro_factura = ?", (nuevo_pagado, nuevo_est, fac_sel))
+                        conn.commit()
+                        conn.close()
+                        st.success("¡Pago registrado con éxito!")
+                        st.rerun()
+
+        with tab_cxc2:
+            st.subheader("✏️ Editar Datos de Factura Existente")
+            fac_ids = df_cob["id"].tolist()
+            sel_fac_id = st.selectbox("Seleccione ID de Factura a Modificar:", fac_ids, key="sel_edit_fac")
+            row_edit_fac = df_cob[df_cob["id"] == sel_fac_id].iloc[0]
+
+            with st.form("form_editar_factura_real"):
+                ed_nro_fac = st.text_input("Nro. de Factura", value=row_edit_fac["nro_factura"])
+                ed_cli_fac = st.text_input("Cliente Matriz", value=row_edit_fac["cliente"])
+                ed_monto_fac = st.number_input("Monto Total de la Factura ($)", min_value=0.0, value=float(row_edit_fac["monto_factura"]))
+                ed_est_fac = st.selectbox("Estatus de Pago", ["Pendiente", "Parcial", "Pagado"], index=["Pendiente", "Parcial", "Pagado"].index(row_edit_fac["estatus_pago"]) if row_edit_fac["estatus_pago"] in ["Pendiente", "Parcial", "Pagado"] else 0)
+
+                if st.form_submit_button("💾 Guardar Cambios en Factura"):
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
-                    cursor.execute("UPDATE cobranza SET monto_pagado = ?, estatus_pago = ? WHERE nro_factura = ?", (nuevo_pagado, nuevo_est, fac_sel))
+                    cursor.execute("""
+                        UPDATE cobranza 
+                        SET nro_factura = ?, cliente = ?, monto_factura = ?, estatus_pago = ?
+                        WHERE id = ?
+                    """, (ed_nro_fac.upper(), ed_cli_fac.upper(), ed_monto_fac, ed_est_fac, int(sel_fac_id)))
                     conn.commit()
                     conn.close()
-                    st.success("¡Pago registrado con éxito!")
+                    st.success("¡Factura actualizada con éxito!")
                     st.rerun()
+
+        with tab_cxc3:
+            st.subheader("🗑️ Eliminar / Anular Factura del Sistema")
+            fac_del_id = st.selectbox("Seleccione ID de Factura a Eliminar:", df_cob["id"].tolist(), key="sel_del_fac")
+            if st.button("🗑️ Confirmar Eliminación de Factura"):
+                conn = sqlite3.connect(DB_NAME)
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM cobranza WHERE id = ?", (int(fac_del_id),))
+                conn.commit()
+                conn.close()
+                st.success("¡Factura eliminada de Cuentas por Cobrar!")
+                st.rerun()
     else:
         st.info("No hay registros de cobranza activos.")
 
@@ -1296,74 +1338,100 @@ elif menu.startswith("16."):
             st.warning("Debe registrar clientes antes de procesar devoluciones.")
 
 # ---------------------------------------------------------
-# 17. HISTORIAL COMPLETO DE PEDIDOS & ELIMINACIÓN CON REVERSIÓN
+# 17. HISTORIAL COMPLETO DE PEDIDOS, EDICIÓN & REVERSIÓN
 # ---------------------------------------------------------
 elif menu.startswith("17."):
-    st.title("📋 Historial Completo de Pedidos & Eliminación con Reversión Automática")
-    st.write("Visualiza los pedidos registrados. Si un pedido es cancelado o eliminado aquí, el stock regresa automáticamente a las cámaras.")
+    st.title("📋 Historial de Pedidos, Edición y Eliminación con Reversión")
+    st.write("Visualiza tus pedidos, edita sus datos generales o elimínalos para que el stock regrese automáticamente a cámaras.")
 
     conn = sqlite3.connect(DB_NAME)
     df_peds = pd.read_sql("SELECT * FROM pedidos", conn)
     conn.close()
 
     if not df_peds.empty:
-        st.dataframe(df_peds[["id", "nro_pedido", "cliente", "sucursal", "fecha_pedido", "monto_total", "estatus_despacho"]], use_container_width=True)
-        csv_p = df_peds.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Descargar Pedidos en Excel (CSV)", csv_p, "pedidos_frumix.csv", "text/csv")
+        tab_p_ed1, tab_p_ed2, tab_p_ed3 = st.tabs(["📋 Listado de Pedidos", "✏️ Editar Datos de Pedido", "🗑️ Anular Pedido y Reintegrar Stock"])
 
-        st.markdown("---")
-        st.subheader("🗑️ Cancelar / Eliminar Pedido y Reintegrar Stock")
-        
-        pedido_id_del = st.selectbox("Seleccione ID de Pedido a Anular/Eliminar:", df_peds["id"].tolist())
-        
-        if st.button("🗑️ Anular Pedido y Devolver Stock a Cámaras"):
-            try:
-                conn = sqlite3.connect(DB_NAME)
-                cursor = conn.cursor()
-                cursor.execute("BEGIN TRANSACTION;")
+        with tab_p_ed1:
+            st.dataframe(df_peds, use_container_width=True)
+            csv_p = df_peds.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Descargar Pedidos en Excel (CSV)", csv_p, "pedidos_frumix.csv", "text/csv")
 
-                cursor.execute("SELECT nro_pedido, detalle_json FROM pedidos WHERE id = ?", (int(pedido_id_del),))
-                res_ped = cursor.fetchone()
-                
-                if res_ped:
-                    nro_ped_del = res_ped[0]
-                    detalle_json_str = res_ped[1]
-                    
-                    if detalle_json_str:
-                        items_cancelados = json.loads(detalle_json_str)
-                        for item in items_cancelados:
-                            inv_id = item["inventario_id"]
-                            cajas_dev = item["cajas"]
-                            
-                            cursor.execute("SELECT stock_cajas FROM inventario WHERE id = ?", (inv_id,))
-                            row_stk = cursor.fetchone()
-                            
-                            if row_stk:
-                                nuevo_stock = row_stk[0] + cajas_dev
-                                cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stock, inv_id))
-                            else:
-                                cursor.execute("""
-                                    INSERT INTO inventario (lote, producto, calibre, stock_cajas, costo_unitario_caja, fecha_ingreso)
-                                    VALUES (?, ?, ?, ?, ?, ?)
-                                """, (item["lote"], item["producto"], item["calibre"], cajas_dev, item["costo_unitario"], str(get_today_vz())))
+        with tab_p_ed2:
+            st.subheader("✏️ Editar Pedido Existente")
+            id_sel_ped_ed = st.selectbox("Seleccione ID de Pedido a Editar:", df_peds["id"].tolist(), key="sel_ed_ped_real")
+            row_p_ed = df_peds[df_peds["id"] == id_sel_ped_ed].iloc[0]
 
-                            cursor.execute("""
-                                INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
-                                VALUES (?, ?, ?, 'REINGRESO ANULACIÓN', ?, ?, ?, ?)
-                            """, (item["lote"], item["producto"], item["calibre"], cajas_dev, f"Anulación Pedido {nro_ped_del}", str(get_today_vz()), st.session_state.rol))
+            with st.form("form_editar_pedido_datos"):
+                ed_nro_p = st.text_input("Número de Pedido", value=row_p_ed["nro_pedido"])
+                ed_cli_p = st.text_input("Cliente", value=row_p_ed["cliente"])
+                ed_suc_p = st.text_input("Sucursal", value=row_p_ed["sucursal"])
+                ed_est_p = st.selectbox("Estatus de Despacho", ["Reservado / En Espera", "Despachado", "Cancelado"], index=0)
 
-                    cursor.execute("DELETE FROM pedidos WHERE id = ?", (int(pedido_id_del),))
+                if st.form_submit_button("💾 Guardar Cambios del Pedido"):
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        UPDATE pedidos 
+                        SET nro_pedido = ?, cliente = ?, sucursal = ?, estatus_despacho = ?
+                        WHERE id = ?
+                    """, (ed_nro_p, ed_cli_p.upper(), ed_suc_p.upper(), ed_est_p, int(id_sel_ped_ed)))
                     conn.commit()
                     conn.close()
-
-                    registrar_auditoria(st.session_state.usuario, st.session_state.rol, "ANULACIÓN DE PEDIDO", f"Pedido {nro_ped_del} anulado y stock reingresado a cámaras.")
-                    st.success("¡Pedido anulado con éxito!")
+                    st.success("¡Pedido actualizado exitosamente!")
                     st.rerun()
 
-            except Exception as e:
-                if 'conn' in locals():
-                    conn.rollback()
-                    conn.close()
-                st.error(f"Error al anular el pedido: {e}")
+        with tab_p_ed3:
+            st.subheader("🗑️ Cancelar / Eliminar Pedido y Reintegrar Stock")
+            pedido_id_del = st.selectbox("Seleccione ID de Pedido a Anular/Eliminar:", df_peds["id"].tolist(), key="sel_del_ped_real")
+            
+            if st.button("🗑️ Anular Pedido y Devolver Stock a Cámaras"):
+                try:
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    cursor.execute("BEGIN TRANSACTION;")
+
+                    cursor.execute("SELECT nro_pedido, detalle_json FROM pedidos WHERE id = ?", (int(pedido_id_del),))
+                    res_ped = cursor.fetchone()
+                    
+                    if res_ped:
+                        nro_ped_del = res_ped[0]
+                        detalle_json_str = res_ped[1]
+                        
+                        if detalle_json_str:
+                            items_cancelados = json.loads(detalle_json_str)
+                            for item in items_cancelados:
+                                inv_id = item["inventario_id"]
+                                cajas_dev = item["cajas"]
+                                
+                                cursor.execute("SELECT stock_cajas FROM inventario WHERE id = ?", (inv_id,))
+                                row_stk = cursor.fetchone()
+                                
+                                if row_stk:
+                                    nuevo_stock = row_stk[0] + cajas_dev
+                                    cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stock, inv_id))
+                                else:
+                                    cursor.execute("""
+                                        INSERT INTO inventario (lote, producto, calibre, stock_cajas, costo_unitario_caja, fecha_ingreso)
+                                        VALUES (?, ?, ?, ?, ?, ?)
+                                    """, (item["lote"], item["producto"], item["calibre"], cajas_dev, item["costo_unitario"], str(get_today_vz())))
+
+                                cursor.execute("""
+                                    INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
+                                    VALUES (?, ?, ?, 'REINGRESO ANULACIÓN', ?, ?, ?, ?)
+                                """, (item["lote"], item["producto"], item["calibre"], cajas_dev, f"Anulación Pedido {nro_ped_del}", str(get_today_vz()), st.session_state.rol))
+
+                        cursor.execute("DELETE FROM pedidos WHERE id = ?", (int(pedido_id_del),))
+                        conn.commit()
+                        conn.close()
+
+                        registrar_auditoria(st.session_state.usuario, st.session_state.rol, "ANULACIÓN DE PEDIDO", f"Pedido {nro_ped_del} anulado y stock reingresado a cámaras.")
+                        st.success("¡Pedido anulado con éxito y stock devuelto a cámaras!")
+                        st.rerun()
+
+                except Exception as e:
+                    if 'conn' in locals():
+                        conn.rollback()
+                        conn.close()
+                    st.error(f"Error al anular el pedido: {e}")
     else:
         st.info("No hay pedidos registrados en el sistema.")
