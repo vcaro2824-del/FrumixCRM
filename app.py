@@ -6,6 +6,7 @@ import json
 import threading
 import time
 import urllib.request
+import os
 
 # ---------------------------------------------------------
 # CONFIGURACIÓN DE ZONA HORARIA VENEZUELA (UTC-4)
@@ -22,13 +23,10 @@ def get_today_vz():
 # CONFIGURACIÓN DE PÁGINA CORPORATIVA
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B Enterprise Elite V31",
+    page_title="Frumix C.A. - ERP B2B Enterprise Elite V33",
     page_icon="🍓",
     layout="wide",
 )
-
-# Limpieza total de caché en arranque
-st.cache_data.clear()
 
 # ---------------------------------------------------------
 # SISTEMA KEEP-ALIVE BLINDADO PARA CLOUD 24/7
@@ -44,15 +42,15 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V31 ESTABLE
+# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V33 PERSISTENTE
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_elite_v31.db"
+DB_NAME = "frumix_enterprise_elite_v33.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    # 1. Cartera de Clientes Oficial (Vacía para carga 100% manual de Deiglis)
+    # 1. Cartera de Clientes Oficial
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -191,7 +189,7 @@ def init_db():
         )
     """)
 
-    # 8. Clientes exclusivos para el módulo de Cotizaciones (Aislado de la cartera real)
+    # 8. Clientes exclusivos para el módulo de Cotizaciones
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes_cotizaciones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -214,23 +212,20 @@ EMPRESA = {
 }
 
 # ---------------------------------------------------------
-# FUNCIONES DE CONSULTA CON CACHÉ
+# FUNCIONES DE CONSULTA
 # ---------------------------------------------------------
-@st.cache_data
 def get_catalogo_cache():
     conn = sqlite3.connect(DB_NAME)
     df = pd.read_sql("SELECT * FROM matriz_precios", conn)
     conn.close()
     return df
 
-@st.cache_data
 def get_clientes_cache():
     conn = sqlite3.connect(DB_NAME)
     df = pd.read_sql("SELECT * FROM clientes", conn)
     conn.close()
     return df
 
-@st.cache_data
 def get_inventario_cache():
     conn = sqlite3.connect(DB_NAME)
     df = pd.read_sql("SELECT * FROM inventario", conn)
@@ -287,7 +282,7 @@ if not st.session_state.autenticado:
     st.stop()
 
 # ---------------------------------------------------------
-# MENÚ LATERAL ERP COMPLETO (MÓDULOS V31)
+# MENÚ LATERAL ERP COMPLETO (MÓDULOS V33)
 # ---------------------------------------------------------
 st.sidebar.markdown(f"### 🍓 {EMPRESA['nombre']}")
 st.sidebar.markdown(f"**Usuario Activo:** {st.session_state.rol}")
@@ -317,7 +312,7 @@ modulos_disponibles = [
     "17. 📋 Historial Completo de Pedidos & Eliminación con Reversión",
 ]
 
-menu = st.sidebar.radio("Módulos ERP Enterprise Elite V31:", modulos_disponibles)
+menu = st.sidebar.radio("Módulos ERP Enterprise Elite V33:", modulos_disponibles)
 
 # ---------------------------------------------------------
 # 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
