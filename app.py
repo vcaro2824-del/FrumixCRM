@@ -11,7 +11,7 @@ import urllib.request
 # CONFIGURACIÓN DE PÁGINA CORPORATIVA
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B Enterprise Elite V28",
+    page_title="Frumix C.A. - ERP B2B Enterprise Elite V29",
     page_icon="🍓",
     layout="wide",
 )
@@ -33,9 +33,9 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V28 ESTABLE
+# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V29 ESTABLE
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_elite_v28.db"
+DB_NAME = "frumix_enterprise_elite_v29.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -75,7 +75,7 @@ def init_db():
         )
     """)
     
-    # 3. Pedidos (Reserva Inmediata de Stock)
+    # 3. Pedidos (Reserva Inmediata de Stock y Reversión Automática)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS pedidos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -275,7 +275,7 @@ if not st.session_state.autenticado:
     st.stop()
 
 # ---------------------------------------------------------
-# MENÚ LATERAL ERP COMPLETO (MÓDULOS V28)
+# MENÚ LATERAL ERP COMPLETO (MÓDULOS V29)
 # ---------------------------------------------------------
 st.sidebar.markdown(f"### 🍓 {EMPRESA['nombre']}")
 st.sidebar.markdown(f"**Usuario Activo:** {st.session_state.rol}")
@@ -302,10 +302,10 @@ modulos_disponibles = [
     "14. 💲 Matriz Dinámica de Precios (Caja a KG)",
     "15. 🗑️ Control de Mermas & Pérdidas",
     "16. ↩️ Módulo de Devoluciones (Merma o Reingreso)",
-    "17. 📋 Historial Completo de Pedidos",
+    "17. 📋 Historial Completo de Pedidos & Eliminación con Reversión",
 ]
 
-menu = st.sidebar.radio("Módulos ERP Enterprise Elite V28:", modulos_disponibles)
+menu = st.sidebar.radio("Módulos ERP Enterprise Elite V29:", modulos_disponibles)
 
 # ---------------------------------------------------------
 # 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
@@ -342,6 +342,10 @@ if menu.startswith("1."):
     st.subheader("🕵️‍♂️ Bitácora de Auditoría y Control de Accesos")
     if not df_audit.empty:
         st.dataframe(df_audit[["fecha_hora", "usuario", "rol", "accion", "detalles"]], use_container_width=True)
+        
+        # Mejora: Botón de exportación a CSV
+        csv_audit = df_audit.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Descargar Auditoría en Excel (CSV)", csv_audit, "auditoria_frumix.csv", "text/csv")
     else:
         st.info("No hay registros en la bitácora de auditoría.")
 
@@ -350,20 +354,28 @@ if menu.startswith("1."):
 # ---------------------------------------------------------
 elif menu.startswith("2."):
     st.title("📦 Inventario Flexible - Control por Calibre Opcional y Edición Manual")
-    st.write("Administra el stock en cámaras. Puedes agregar lotes nuevos o **editar directamente las cajas en stock** para sincronizar con tus conteos físicos.")
+    st.write("Administra el stock en cámaras. Los calibres por debajo de 10 cajas se marcan en alerta crítica.")
 
-    tab_inv1, tab_inv2, tab_inv3 = st.tabs(["📋 Existencias Actuales & Edición Manual", "➕ Añadir Lote de Fruta", "🗑️ Eliminar Lote"])
+    tab_inv1, tab_inv2, tab_inv3 = st.tabs(["📋 Existencias & Alertas Críticas", "➕ Añadir Lote de Fruta", "🗑️ Eliminar Lote"])
 
     with tab_inv1:
         df_inv = get_inventario_cache()
         if not df_inv.empty:
             st.subheader("📊 Tabla de Existencias en Cámaras")
-            st.dataframe(df_inv[["id", "lote", "producto", "calibre", "stock_cajas", "costo_unitario_caja", "fecha_ingreso"]], use_container_width=True)
+            
+            # Mejora: Alerta visual de stock crítico (< 10 cajas)
+            def destacar_critico(val):
+                color = 'red' if val < 10 else 'black'
+                return f'color: {color}; font-weight: bold;'
+
+            st.dataframe(df_inv.style.applymap(destacar_critico, subset=['stock_cajas']), use_container_width=True)
+            st.caption("🔴 *Nota:* Los valores en rojo indican stock crítico menor a 10 cajas.")
+
+            csv_inv = df_inv.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Descargar Inventario en Excel (CSV)", csv_inv, "inventario_frumix.csv", "text/csv")
 
             st.markdown("---")
             st.subheader("✏️ Edición Directa de Stock (Auditoría Física)")
-            st.write("Si realizaste un conteo físico y necesitas corregir el stock exacto de un lote, selecciónalo aquí:")
-            
             id_edit_stock = st.selectbox("Seleccione ID de Inventario a Modificar:", df_inv["id"].tolist(), key="sel_ed_stk")
             row_stk_edit = df_inv[df_inv["id"] == id_edit_stock].iloc[0]
             
@@ -460,7 +472,7 @@ elif menu.startswith("2."):
 # ---------------------------------------------------------
 elif menu.startswith("3."):
     st.title("🛒 Generador de Pedidos B2B (Reserva Inmediata de Stock)")
-    st.write("Al levantar un pedido, la mercancía **se descuenta y reserva de inmediato** de las cámaras de frío. Si el pedido se elimina o edita, el stock regresa automáticamente.")
+    st.write("Al levantar un pedido, la mercancía **se descuenta y reserva de inmediato** de las cámaras de frío.")
 
     df_cli_db = get_clientes_cache()
     df_inv_db = get_inventario_cache()
@@ -502,7 +514,6 @@ elif menu.startswith("3."):
                 with c_p2:
                     calibre_ped = st.selectbox("2. Seleccionar Calibre Disponible", calibres_disp_fruta)
                     
-                # Regla FIFO: Sugerir el lote más antiguo con stock
                 df_lotes_fifo = df_inv_disponible[(df_inv_disponible["producto"] == fruta_ped) & (df_inv_disponible["calibre"] == calibre_ped)].sort_values(by="fecha_ingreso", ascending=True)
                 row_inv_item = df_lotes_fifo.iloc[0]
                 
@@ -585,20 +596,19 @@ elif menu.startswith("3."):
             st.warning("No hay existencias disponibles en cámaras de frío.")
 
 # ---------------------------------------------------------
-# 4. COTIZADOR PRO (CARTERA EXCLUSIVA DE COTIZACIONES)
+# 4. COTIZADOR PRO (CON FORMATO HTML IMPRIMIBLE Y LOGO)
 # ---------------------------------------------------------
 elif menu.startswith("4."):
-    st.title("📄 Cotizador B2B Profesional (Cartera de Cotizaciones Aislada)")
-    st.write("Genera listas de precios y cotizaciones formales utilizando una lista de contactos propia y exclusiva de este módulo, sin alterar tu cartera de clientes oficial.")
+    st.title("📄 Cotizador B2B Profesional con Formato Imprimible")
+    st.write("Genera listas de precios oficiales y exporta el documento HTML institucional con logo para clientes.")
 
     df_mat = get_catalogo_cache()
 
-    # Gestión de lista de clientes de cotizaciones
     conn = sqlite3.connect(DB_NAME)
     df_cli_cot = pd.read_sql("SELECT * FROM clientes_cotizaciones", conn)
     conn.close()
 
-    with st.expander("➕ Gestionar Clientes / Destinatarios Exclusivos para Cotizaciones"):
+    with st.expander("➕ Gestionar Destinatarios Exclusivos para Cotizaciones"):
         with st.form("form_add_cot_cli"):
             nombre_cot = st.text_input("Nombre del Cliente, Prospecto o Asesor Solicitante")
             empresa_cot = st.text_input("Empresa o Referencia")
@@ -610,7 +620,7 @@ elif menu.startswith("4."):
                     cursor.execute("INSERT INTO clientes_cotizaciones (nombre_cliente_o_asesor, empresa, observacion) VALUES (?, ?, ?)", (nombre_cot, empresa_cot, obs_cot))
                     conn.commit()
                     conn.close()
-                    st.success("¡Destinatario agregado a cotizaciones!")
+                    st.success("¡Destinatario agregado!")
                     st.rerun()
 
     if not df_cli_cot.empty:
@@ -622,7 +632,7 @@ elif menu.startswith("4."):
     vig_sel = st.date_input("Validez de la cotización:", value=date.today() + pd.Timedelta(days=7))
 
     st.markdown("---")
-    st.subheader("📋 Modificar Precios para la Cotización")
+    st.subheader("📋 Cuadro de Precios:")
 
     if not df_mat.empty:
         df_editor_v = df_mat[["codigo", "descripcion", "calibre", "clasificacion_calidad", "empaque_kg", "costo_caja", "precio_caja"]].copy()
@@ -635,7 +645,8 @@ elif menu.startswith("4."):
         )
 
         st.markdown("---")
-        if st.button("📥 Generar Documento HTML de Cotización con Logo"):
+        st.subheader("📄 Generar Formato Imprimible")
+        if st.button("📥 Generar Documento HTML de Cotización"):
             logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
             
             html_doc = f"""
@@ -649,11 +660,12 @@ elif menu.startswith("4."):
                     .logo {{ max-height: 80px; width: auto; }}
                     .intro-text {{ margin-top: 20px; font-family: Arial, sans-serif; font-size: 12px; line-height: 1.6; color: #333; text-align: left; }}
                     h3 {{ font-family: Arial, sans-serif; font-size: 14px; text-align: left; margin-top: 25px; }}
-                    table {{ width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; }}
-                    th, td {{ border: 1px solid #bbb; padding: 10px; text-align: left; font-size: 12px; }}
+                    table {{ width: 100%; min-width: 650px; border-collapse: collapse; margin-top: 20px; text-align: left; }}
+                    th, td {{ border: 1px solid #bbb; padding: 12px 15px; text-align: left; font-family: Arial, sans-serif; font-size: 12px; }}
                     th {{ background-color: #f2f2f2; font-weight: bold; }}
-                    .signature-container {{ margin-top: 35px; text-align: center; }}
-                    .signature {{ font-weight: bold; display: inline-block; text-align: center; }}
+                    p {{ font-family: Arial, sans-serif; font-size: 12px; text-align: left; }}
+                    .signature-container {{ margin-top: 35px; width: 100%; text-align: center; }}
+                    .signature {{ font-family: Arial, sans-serif; font-size: 12px; font-weight: bold; color: #111; display: inline-block; text-align: center; line-height: 1.5; }}
                 </style>
             </head>
             <body>
@@ -669,11 +681,11 @@ elif menu.startswith("4."):
                 </div>
                 
                 <div class="intro-text">
-                    A continuación presentamos nuestra cotización oficial de productos frescos.<br>
-                    Garantizamos la calidad y óptima cadena de frío en cada entrega.
+                    A continuación encontrará nuestra lista oficial de precios.<br>
+                    Nuestra alianza con los mejores productos de frutas frescas a nivel mundial y el correcto manejo del producto garantiza la calidad y buen servicio que nos caracteriza.
                 </div>
 
-                <h3>Cotización Comercial</h3>
+                <h3>Cotización Comercial Oficial</h3>
                 <table>
                     <tr>
                         <th>Código</th>
@@ -690,11 +702,12 @@ elif menu.startswith("4."):
             html_doc += f"""
                 </table>
                 <br>
-                <p><strong>Condiciones:</strong> Sujeto a stock en cámaras. Válido hasta {vig_sel}.</p>
+                <p><strong>Condiciones Comerciales:</strong> Sujeto a disponibilidad en cámaras de frío. Validez de precios hasta {vig_sel}.</p>
+                
                 <div class="signature-container">
                     <div class="signature">
                         Atentamente;<br>
-                        Gcia. de Ventas / Comercialización<br>
+                        Gcia. De Ventas<br>
                         FRUMIX C.A.
                     </div>
                 </div>
@@ -702,7 +715,7 @@ elif menu.startswith("4."):
             </html>
             """
             st.download_button(
-                label="💾 Descargar Archivo HTML de Cotización",
+                label="💾 Descargar Cotización en HTML para Imprimir / WhatsApp",
                 data=html_doc,
                 file_name=f"Cotizacion_Frumix_{date.today()}.html",
                 mime="text/html"
@@ -762,6 +775,9 @@ elif menu.startswith("6."):
         if not df_cat.empty:
             st.dataframe(df_cat, use_container_width=True)
             
+            csv_cat = df_cat.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Descargar Catálogo en Excel (CSV)", csv_cat, "catalogo_frumix.csv", "text/csv")
+
             st.markdown("---")
             id_p_del = st.selectbox("Seleccione ID de producto a eliminar:", df_cat["id"].tolist())
             if st.button("🗑️ Eliminar Producto"):
@@ -850,6 +866,8 @@ elif menu.startswith("7."):
 
     if not df_kardex.empty:
         st.dataframe(df_kardex, use_container_width=True)
+        csv_k = df_kardex.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Descargar Kardex en Excel (CSV)", csv_k, "kardex_frumix.csv", "text/csv")
     else:
         st.info("No hay movimientos en el kardex.")
 
@@ -867,6 +885,9 @@ elif menu.startswith("8."):
         if not df_cli.empty:
             st.dataframe(df_cli, use_container_width=True)
             
+            csv_cli = df_cli.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Descargar Cartera de Clientes en Excel (CSV)", csv_cli, "clientes_frumix.csv", "text/csv")
+
             st.markdown("---")
             id_cli_del = st.selectbox("Seleccione ID de registro a eliminar:", df_cli["id"].tolist())
             if st.button("🗑️ Eliminar Sucursal"):
@@ -971,6 +992,8 @@ elif menu.startswith("10."):
     conn.close()
     if not df_p.empty:
         st.dataframe(df_p, use_container_width=True)
+        csv_rep = df_p.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Descargar Reporte en Excel (CSV)", csv_rep, "reporte_ventas.csv", "text/csv")
     else:
         st.info("No hay pedidos registrados.")
 
@@ -998,6 +1021,8 @@ elif menu.startswith("12."):
 
     if not df_cob.empty:
         st.dataframe(df_cob, use_container_width=True)
+        csv_cxc = df_cob.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Descargar CxC en Excel (CSV)", csv_cxc, "cxc_frumix.csv", "text/csv")
         
         st.markdown("---")
         st.subheader("💵 Registrar Pago de Factura")
@@ -1059,6 +1084,8 @@ elif menu.startswith("15."):
         conn.close()
         if not df_mer.empty:
             st.dataframe(df_mer, use_container_width=True)
+            csv_m = df_mer.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Descargar Mermas en Excel (CSV)", csv_m, "mermas_frumix.csv", "text/csv")
         else:
             st.info("No hay mermas.")
 
@@ -1110,6 +1137,8 @@ elif menu.startswith("16."):
         conn.close()
         if not df_dev.empty:
             st.dataframe(df_dev, use_container_width=True)
+            csv_d = df_dev.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Descargar Devoluciones en Excel (CSV)", csv_d, "devoluciones_frumix.csv", "text/csv")
         else:
             st.info("No hay devoluciones registradas.")
 
@@ -1144,14 +1173,74 @@ elif menu.startswith("16."):
                     st.rerun()
 
 # ---------------------------------------------------------
-# 17. HISTORIAL COMPLETO DE PEDIDOS
+# 17. HISTORIAL COMPLETO DE PEDIDOS & ELIMINACIÓN CON REVERSIÓN
 # ---------------------------------------------------------
 elif menu.startswith("17."):
-    st.title("📋 Historial Completo de Pedidos B2B")
+    st.title("📋 Historial Completo de Pedidos & Eliminación con Reversión Automática")
+    st.write("Visualiza los pedidos registrados. Si un pedido es cancelado o eliminado aquí, **el stock regresa automáticamente a las cámaras de frío**.")
+
     conn = sqlite3.connect(DB_NAME)
     df_peds = pd.read_sql("SELECT * FROM pedidos", conn)
     conn.close()
+
     if not df_peds.empty:
-        st.dataframe(df_peds, use_container_width=True)
+        st.dataframe(df_peds[["id", "nro_pedido", "cliente", "sucursal", "fecha_pedido", "monto_total", "estatus_despacho"]], use_container_width=True)
+        csv_p = df_peds.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Descargar Pedidos en Excel (CSV)", csv_p, "pedidos_frumix.csv", "text/csv")
+
+        st.markdown("---")
+        st.subheader("🗑️ Cancelar / Eliminar Pedido y Reintegrar Stock")
+        
+        pedido_id_del = st.selectbox("Seleccione ID de Pedido a Anular/Eliminar:", df_peds["id"].tolist())
+        
+        if st.button("🗑️ Anular Pedido y Devolver Stock a Cámaras"):
+            try:
+                conn = sqlite3.connect(DB_NAME)
+                cursor = conn.cursor()
+                cursor.execute("BEGIN TRANSACTION;")
+
+                cursor.execute("SELECT nro_pedido, detalle_json FROM pedidos WHERE id = ?", (int(pedido_id_del),))
+                res_ped = cursor.fetchone()
+                
+                if res_ped:
+                    nro_ped_del = res_ped[0]
+                    detalle_json_str = res_ped[1]
+                    
+                    if detalle_json_str:
+                        items_cancelados = json.loads(detalle_json_str)
+                        for item in items_cancelados:
+                            inv_id = item["inventario_id"]
+                            cajas_dev = item["cajas"]
+                            
+                            cursor.execute("SELECT stock_cajas FROM inventario WHERE id = ?", (inv_id,))
+                            row_stk = cursor.fetchone()
+                            
+                            if row_stk:
+                                nuevo_stock = row_stk[0] + cajas_dev
+                                cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stock, inv_id))
+                            else:
+                                cursor.execute("""
+                                    INSERT INTO inventario (lote, producto, calibre, stock_cajas, costo_unitario_caja, fecha_ingreso)
+                                    VALUES (?, ?, ?, ?, ?, ?)
+                                """, (item["lote"], item["producto"], item["calibre"], cajas_dev, item["costo_unitario"], str(date.today())))
+
+                            cursor.execute("""
+                                INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
+                                VALUES (?, ?, ?, 'REINGRESO ANULACIÓN', ?, ?, ?, ?)
+                            """, (item["lote"], item["producto"], item["calibre"], cajas_dev, f"Anulación Pedido {nro_ped_del}", str(date.today()), st.session_state.rol))
+
+                    cursor.execute("DELETE FROM pedidos WHERE id = ?", (int(pedido_id_del),))
+                    conn.commit()
+                    conn.close()
+
+                    registrar_auditoria(st.session_state.usuario, st.session_state.rol, "ANULACIÓN DE PEDIDO", f"Pedido {nro_ped_del} anulado y stock reingresado a cámaras.")
+                    st.success("¡Pedido anulado con éxito! La mercancía regresó automáticamente al inventario de cámaras.")
+                    st.rerun()
+
+            except Exception as e:
+                if 'conn' in locals():
+                    conn.rollback()
+                    conn.close()
+                st.error(f"Error al anular el pedido: {e}")
     else:
-        st.info("No hay pedidos.")
+        st.info("No hay pedidos registrados.")
