@@ -11,7 +11,7 @@ import urllib.request
 # CONFIGURACIÓN DE PÁGINA CORPORATIVA
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B Enterprise Elite",
+    page_title="Frumix C.A. - ERP B2B Enterprise Elite V28",
     page_icon="🍓",
     layout="wide",
 )
@@ -33,15 +33,15 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V27 ESTABLE
+# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V28 ESTABLE
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_elite_v27.db"
+DB_NAME = "frumix_enterprise_elite_v28.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    # 1. Clientes
+    # 1. Cartera de Clientes Oficial (Vacía para carga 100% manual de Deiglis)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,14 +58,14 @@ def init_db():
         )
     """)
     
-    # 2. Catálogo Base
+    # 2. Catálogo Base de Productos
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS matriz_precios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             codigo TEXT,
             barra TEXT,
             descripcion TEXT,
-            calibre TEXT,
+            maneja_calibre TEXT,
             clasificacion_calidad TEXT,
             empaque_kg REAL,
             costo_caja REAL,
@@ -75,7 +75,7 @@ def init_db():
         )
     """)
     
-    # 3. Pedidos
+    # 3. Pedidos (Reserva Inmediata de Stock)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS pedidos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -95,7 +95,7 @@ def init_db():
         )
     """)
 
-    # 4. Cobranza
+    # 4. Cobranza y Facturación Independiente
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS cobranza (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,7 +109,7 @@ def init_db():
         )
     """)
 
-    # 5. Inventario por Fruta y Calibre
+    # 5. Inventario por Lote, Producto y Calibre Opcional
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS inventario (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -122,7 +122,7 @@ def init_db():
         )
     """)
 
-    # 5.1. Kardex Movimientos
+    # 5.1. Kardex de Movimientos & Auditoría de Stock
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS movimientos_inventario (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -137,7 +137,7 @@ def init_db():
         )
     """)
 
-    # 6. Mermas
+    # 6. Mermas y Pérdidas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS mermas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -152,7 +152,7 @@ def init_db():
         )
     """)
 
-    # 6.1. Devoluciones
+    # 6.1. Devoluciones de Clientes (Destino Merma o Reingreso)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS devoluciones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -163,71 +163,34 @@ def init_db():
             calibre TEXT,
             cantidad_devuelta REAL,
             motivo_devolucion TEXT,
-            destino_merma TEXT,
+            destino_accion TEXT,
             fecha_devolucion TEXT
         )
     """)
 
-    # 7. Embudo de Ventas
+    # 7. Bitácora de Auditoría de Accesos y Acciones
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS embudo_ventas (
+        CREATE TABLE IF NOT EXISTS bitacora_auditoria (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            negocio TEXT,
-            cliente TEXT,
-            etapa_embudo TEXT,
-            valor_estimado REAL,
-            probabilidad TEXT,
-            responsable TEXT,
-            fecha_actualizacion TEXT
+            usuario TEXT,
+            rol TEXT,
+            accion TEXT,
+            detalles TEXT,
+            fecha_hora TEXT
+        )
+    """)
+
+    # 8. Clientes exclusivos para el módulo de Cotizaciones (Aislado de la cartera real)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS clientes_cotizaciones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre_cliente_o_asesor TEXT,
+            empresa TEXT,
+            observacion TEXT
         )
     """)
 
     conn.commit()
-
-    # Cargar Clientes Oficiales Base si está vacío
-    cursor.execute("SELECT COUNT(*) FROM clientes")
-    if cursor.fetchone()[0] == 0:
-        clientes_oficiales = [
-            ("BULLKING", "Principal Caracas", "Supermercados", "Tarifa A (Comprador regular)", "Ladimir (Occidente)", "+58 412-1111111", "Compras Bullking", 15, 12000.0, "2026-09-10"),
-            ("CENTRAL MADERENSE", "Sucursal Este", "Supermercados", "Tarifa A (Comprador regular)", "Tufic (Capital)", "+58 412-2222222", "Juan Pérez", 30, 20000.0, "2026-08-15"),
-            ("CENTRAL MADERENSE", "Sucursal Centro", "Supermercados", "Tarifa A (Comprador regular)", "Tufic (Capital)", "+58 412-2222223", "María López", 30, 20000.0, "2026-08-20"),
-            ("SUPERMERCADO EUROS", "La Candelaria", "Supermercados", "Tarifa B (Comprador medio)", "Wilmer (Oriente)", "+58 412-3333333", "Ana Gómez", 15, 8000.0, "2026-09-18"),
-            ("LADIMIR", "Mercado Mayor", "Mayorista", "Tarifa A (Comprador regular)", "Ladimir (Occidente)", "+58 412-4444444", "Carlos Ladimir", 7, 15000.0, "2026-07-01"),
-            ("SUPERMERCADOS LUXOR", "Boleíta", "Supermercados", "Tarifa B (Comprador medio)", "Tufic (Capital)", "+58 412-5555555", "Luis Luxor", 15, 10000.0, "2026-09-01"),
-            ("MERCATO", "Chacao", "Supermercados", "Tarifa B (Comprador medio)", "Tufic (Capital)", "+58 412-3211234", "Gerencia Mercato", 15, 7000.0, "2026-09-05"),
-            ("PLAN SUAREZ", "Baruta", "Supermercados", "Tarifa A (Comprador regular)", "Ladimir (Occidente)", "+58 412-6666666", "Mario Suarez", 30, 18000.0, "2026-06-20"),
-            ("RIO CARACAS", "Antímano", "Supermercados", "Tarifa A (Comprador regular)", "Tufic (Capital)", "+58 412-7777777", "Pedro Río", 15, 12000.0, "2026-09-12"),
-            ("RIO MARGARITA", "Porlamar", "Supermercados", "Tarifa A (Comprador regular)", "Wilmer (Oriente)", "+58 412-1234567", "Ana Río", 30, 15000.0, "2026-08-01"),
-            ("RIO VIDA", "Caracas Centro", "Supermercados", "Tarifa B (Comprador medio)", "Tufic (Capital)", "+58 412-7654321", "Carlos Vida", 15, 8000.0, "2026-09-02"),
-            ("SIGO", "Margarita / Central", "Supermercados", "Tarifa A (Comprador regular)", "Wilmer (Oriente)", "+58 412-8888888", "Gerencia Sigo", 30, 25000.0, "2026-05-10"),
-            ("TIERRA SANTA", "Sabana Grande", "Minimarket", "Tarifa B (Comprador medio)", "Tufic (Capital)", "+58 412-9999999", "Ahmed T.S.", 15, 5000.0, "2026-09-15"),
-            ("SUPER 900", "Catia", "Supermercados", "Tarifa B (Comprador medio)", "Ladimir (Occidente)", "+58 412-9876543", "Luis 900", 15, 6000.0, "2026-08-25"),
-            ("TODO HOGAR", "Petare", "Comercial", "Tarifa C (Comprador esporádico)", "Tufic (Capital)", "+58 412-5432167", "María Hogar", 15, 4000.0, "2026-07-20"),
-            ("VIVA", "El Recreo", "Supermercados", "Tarifa B (Comprador medio)", "Tufic (Capital)", "+58 412-4567890", "Supervisor Viva", 15, 7000.0, "2026-08-30"),
-            ("WILMER", "El Valle", "Mayorista", "Tarifa A (Comprador regular)", "Wilmer (Oriente)", "+58 412-1357924", "Wilmer Distribución", 7, 10000.0, "2026-09-14"),
-            ("PARAMO COLD 2024", "Altamira", "HORECA", "Tarifa A (Comprador regular)", "Tufic (Capital)", "+58 412-2468135", "Equipo Paramo", 15, 8000.0, "2026-09-16"),
-        ]
-        cursor.executemany("""
-            INSERT INTO clientes (matriz, sucursal, segmento, tarifa, dupla, telefono, contacto, limite_credito_dias, limite_credito_dolares, ultimo_pedido)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, clientes_oficiales)
-        conn.commit()
-
-    # Cargar Productos Base de Prueba si está vacío
-    cursor.execute("SELECT COUNT(*) FROM matriz_precios")
-    if cursor.fetchone()[0] == 0:
-        productos_base = [
-            ("759101", "759101", "MANZANA GALA", "80/88", "Premium", 19.0, 45.0, 65.0, 3.42, 30.8),
-            ("759102", "759102", "MANZANA RED DELICIOUS", "100/110", "Premium", 19.0, 42.0, 60.0, 3.16, 30.0),
-            ("759103", "759103", "PERA DJOUMAH", "70/80", "Con detalle", 18.0, 48.0, 70.0, 3.89, 31.4),
-            ("759104", "759104", "UVA IMPORTADA", "GRANEL", "A granel", 8.2, 25.0, 38.0, 4.63, 34.2),
-        ]
-        cursor.executemany("""
-            INSERT INTO matriz_precios (codigo, barra, descripcion, calibre, clasificacion_calidad, empaque_kg, costo_caja, precio_caja, precio_kg, margen_pct)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, productos_base)
-        conn.commit()
-
     conn.close()
 
 init_db()
@@ -240,7 +203,7 @@ EMPRESA = {
 }
 
 # ---------------------------------------------------------
-# CONSULTAS OPTIMIZADAS CON CACHÉ (@st.cache_data)
+# FUNCIONES DE CONSULTA CON CACHÉ
 # ---------------------------------------------------------
 @st.cache_data
 def get_catalogo_cache():
@@ -263,8 +226,21 @@ def get_inventario_cache():
     conn.close()
     return df
 
+def registrar_auditoria(usuario, rol, accion, detalles):
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO bitacora_auditoria (usuario, rol, accion, detalles, fecha_hora)
+            VALUES (?, ?, ?, ?, ?)
+        """, (usuario, rol, accion, detalles, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        conn.commit()
+        conn.close()
+    except:
+        pass
+
 # ---------------------------------------------------------
-# SISTEMA DE AUTENTICACIÓN Y ROLES (LOGIN)
+# SISTEMA DE AUTENTICACIÓN Y ROLES CON AUDITORÍA
 # ---------------------------------------------------------
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
@@ -273,24 +249,25 @@ if "autenticado" not in st.session_state:
 
 if not st.session_state.autenticado:
     st.title("🍓 Frumix C.A. - Control de Acceso ERP B2B")
-    st.write("Ingrese sus credenciales corporativas para acceder al sistema.")
+    st.write("Ingrese sus credenciales corporativas autorizadas.")
     
     with st.form("form_login"):
-        user_input = st.text_input("Usuario (ej. gerencia, ventas, logistica, cobranza)")
+        user_input = st.text_input("Usuario (ej. gerencia, ventas)")
         pass_input = st.text_input("Contraseña", type="password")
         btn_login = st.form_submit_button("Iniciar Sesión")
         
         if btn_login:
             credenciales = {
                 "gerencia": ("frumix2026*", "Gerencia General"),
-                "ventas": ("ventas123", "Equipo Comercial"),
-                "logistica": ("logistica123", "Logística y Despachos"),
-                "cobranza": ("cobranza123", "Departamento de Cobranza")
+                "ventas": ("ventas123", "Equipo Comercial")
             }
             if user_input in credenciales and credenciales[user_input][0] == pass_input:
                 st.session_state.autenticado = True
                 st.session_state.usuario = user_input
                 st.session_state.rol = credenciales[user_input][1]
+                
+                registrar_auditoria(user_input, credenciales[user_input][1], "INICIO DE SESIÓN", f"Acceso exitoso al sistema por {credenciales[user_input][1]}")
+                
                 st.success(f"¡Bienvenido, {st.session_state.rol}!")
                 st.rerun()
             else:
@@ -298,43 +275,44 @@ if not st.session_state.autenticado:
     st.stop()
 
 # ---------------------------------------------------------
-# MENÚ LATERAL ERP COMPLETO (17 MÓDULOS)
+# MENÚ LATERAL ERP COMPLETO (MÓDULOS V28)
 # ---------------------------------------------------------
 st.sidebar.markdown(f"### 🍓 {EMPRESA['nombre']}")
-st.sidebar.markdown(f"**Usuario:** {st.session_state.rol}")
+st.sidebar.markdown(f"**Usuario Activo:** {st.session_state.rol}")
 if st.sidebar.button("🚪 Cerrar Sesión"):
+    registrar_auditoria(st.session_state.usuario, st.session_state.rol, "CIERRE DE SESIÓN", "El usuario cerró sesión.")
     st.session_state.autenticado = False
     st.rerun()
 st.sidebar.markdown("---")
 
 modulos_disponibles = [
-    "1. 📊 Dashboard Gerencial & P&L",
-    "2. 📦 Inventario por Fruta y Calibre",
-    "3. 🛒 Ventas & Pedidos por Calibre",
-    "4. 📄 Ventas & Cotizador Pro (Con Logo/HTML)",
-    "5. 📋 Registro Manual de Pedidos & Facturas (Con Stock)",
-    "6. 🍓 Lista y Gestión de Productos",
-    "7. 🔄 Kardex Diario (Entradas & Salidas)",
-    "8. 🏢 Gestión y Edición de Clientes",
+    "1. 📊 Dashboard Gerencial, P&L & Auditoría",
+    "2. 📦 Inventario Flexible (Stock, Calibre y Edición Manual)",
+    "3. 🛒 Generador de Pedidos (Reserva Automática de Stock)",
+    "4. 📄 Cotizador Pro (Cartera Exclusiva de Cotizaciones)",
+    "5. 📋 Registro Manual de Facturación & CxC Independiente",
+    "6. 🍓 Catálogo de Productos (Calibre Opcional)",
+    "7. 🔄 Kardex & Trazabilidad de Lotes (FIFO)",
+    "8. 🏢 Cartera Oficial de Clientes (Manual, Editable y Sucursales)",
     "9. 🛍️ Historial de Compras de Clientes",
-    "10. 📈 Métricas de Pedidos (Diarios/Semanales)",
+    "10. 📈 Métricas y Reportes Comerciales",
     "11. 🎯 Embudo de Ventas (Sales Funnel)",
-    "12. 💰 Departamento de Cobranza & CxC",
-    "13. 🚚 Logística, Despacho & Rutas",
+    "12. 💰 Cobranza, Crédito y Bloqueo Preventivo",
+    "13. 🚚 Logística y Estatus de Despachos",
     "14. 💲 Matriz Dinámica de Precios (Caja a KG)",
     "15. 🗑️ Control de Mermas & Pérdidas",
-    "16. ↩️ Registro de Devoluciones y Mermas",
+    "16. ↩️ Módulo de Devoluciones (Merma o Reingreso)",
     "17. 📋 Historial Completo de Pedidos",
 ]
 
-menu = st.sidebar.radio("Módulos ERP Enterprise Elite:", modulos_disponibles)
+menu = st.sidebar.radio("Módulos ERP Enterprise Elite V28:", modulos_disponibles)
 
 # ---------------------------------------------------------
-# 1. DASHBOARD GERENCIAL & P&L
+# 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
 # ---------------------------------------------------------
 if menu.startswith("1."):
-    st.title("📊 Dashboard Gerencial y Estado de Resultados (P&L)")
-    st.write("Centro analítico de alto rendimiento con alertas automáticas detalladas de facturas vencidas.")
+    st.title("📊 Dashboard Gerencial, Estado de Resultados y Auditoría")
+    st.write("Centro analítico con control de actividad de usuarios y salud financiera.")
 
     conn = sqlite3.connect(DB_NAME)
     df_ped = pd.read_sql("SELECT * FROM pedidos", conn)
@@ -342,92 +320,73 @@ if menu.startswith("1."):
     df_mer = pd.read_sql("SELECT * FROM mermas", conn)
     df_cxc = pd.read_sql("SELECT * FROM cobranza", conn)
     df_cli = pd.read_sql("SELECT * FROM clientes", conn)
+    df_audit = pd.read_sql("SELECT * FROM bitacora_auditoria ORDER BY id DESC LIMIT 50", conn)
     conn.close()
 
     total_ventas = df_ped["monto_total"].sum() if not df_ped.empty else 0.0
-    total_costos_v = df_ped["costo_total"].sum() if not df_ped.empty else 0.0
     ganancia_neta_pedidos = df_ped["ganancia_estimada"].sum() if not df_ped.empty else 0.0
-    
     val_inv = (df_inv["stock_cajas"] * df_inv["costo_unitario_caja"]).sum() if not df_inv.empty else 0.0
-    val_merma = df_mer["perdida_monetaria"].sum() if not df_mer.empty else 0.0
     deuda_pendiente = (df_cxc[df_cxc["estatus_pago"] != "Pagado"]["monto_factura"] - df_cxc[df_cxc["estatus_pago"] != "Pagado"]["monto_pagado"]).sum() if not df_cxc.empty else 0.0
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.metric("Ventas Totales Facturadas", f"${total_ventas:,.2f}")
+        st.metric("Ventas Totales", f"${total_ventas:,.2f}")
     with c2:
-        st.metric("Utilidad Bruta Operativa", f"${ganancia_neta_pedidos:,.2f}", delta=f"{(ganancia_neta_pedidos/total_ventas*100) if total_ventas>0 else 0:.1f}% Margen")
+        st.metric("Utilidad Bruta Estimada", f"${ganancia_neta_pedidos:,.2f}", delta=f"{(ganancia_neta_pedidos/total_ventas*100) if total_ventas>0 else 0:.1f}% Margen")
     with c3:
         st.metric("Valor Inventario en Frío", f"${val_inv:,.2f}")
     with c4:
-        st.metric("Cuentas por Cobrar Activas", f"${deuda_pendiente:,.2f}")
+        st.metric("CxC Activas", f"${deuda_pendiente:,.2f}")
 
     st.markdown("---")
-    st.subheader("🔔 Centro de Alertas y Notificaciones Gerenciales")
-    col_alerta_1, col_alerta_2 = st.columns(2)
-    
-    with col_alerta_1:
-        st.markdown("### 🚨 Notificación de Facturas Vencidas (Morosidad)")
-        if not df_cxc.empty:
-            hoy_str = str(date.today())
-            df_cxc["fecha_vencimiento"] = pd.to_datetime(df_cxc["fecha_vencimiento"])
-            df_morosos = df_cxc[(df_cxc["estatus_pago"] != "Pagado") & (df_cxc["fecha_vencimiento"] < pd.Timestamp(hoy_str))]
-            
-            if not df_morosos.empty:
-                total_mora = (df_morosos["monto_factura"] - df_morosos["monto_pagado"]).sum()
-                st.error(f"⚠️ ¡Atención! Hay **{len(df_morosos)} facturas vencidas** por cobrar equivalente a **${total_mora:,.2f} USD**.")
-                df_morosos["PENDIENTE ($)"] = df_morosos["monto_factura"] - df_morosos["monto_pagado"]
-                df_display_mora = df_morosos[["nro_factura", "cliente", "fecha_emision", "fecha_vencimiento", "monto_factura", "PENDIENTE ($)", "estatus_pago"]]
-                st.dataframe(df_display_mora, use_container_width=True)
-            else:
-                st.success("✅ No hay facturas vencidas en este momento.")
-        else:
-            st.info("No hay registros de facturación.")
-
-    with col_alerta_2:
-        st.markdown("### 💤 Alerta de Clientes Inactivos")
-        dias_inactividad_limite = st.slider("Filtrar clientes sin pedidos hace más de (días):", min_value=5, max_value=90, value=30)
-        
-        if not df_cli.empty:
-            hoy_dt = pd.Timestamp(date.today())
-            df_cli["ultimo_pedido"] = pd.to_datetime(df_cli["ultimo_pedido"])
-            df_cli["dias_sin_comprar"] = (hoy_dt - df_cli["ultimo_pedido"]).dt.days
-            
-            df_inactivos = df_cli[df_cli["dias_sin_comprar"] >= dias_inactividad_limite]
-            
-            if not df_inactivos.empty:
-                st.warning(f"⚠️ Se detectaron **{len(df_inactivos)} sucursales** sin pedidos en los últimos {dias_inactividad_limite} días.")
-                st.dataframe(df_inactivos[["matriz", "sucursal", "dupla", "contacto", "telefono", "dias_sin_comprar"]], use_container_width=True)
-            else:
-                st.success(f"✅ Todos los clientes están activos.")
-        else:
-            st.info("No hay clientes registrados.")
+    st.subheader("🕵️‍♂️ Bitácora de Auditoría y Control de Accesos")
+    if not df_audit.empty:
+        st.dataframe(df_audit[["fecha_hora", "usuario", "rol", "accion", "detalles"]], use_container_width=True)
+    else:
+        st.info("No hay registros en la bitácora de auditoría.")
 
 # ---------------------------------------------------------
-# 2. INVENTARIO POR FRUTA Y CALIBRE
+# 2. INVENTARIO FLEXIBLE (STOCK, CALIBRE Y EDICIÓN MANUAL)
 # ---------------------------------------------------------
 elif menu.startswith("2."):
-    st.title("📦 Control de Inventario por Frutas y Calibres en Existencia")
-    st.write("Agrega los calibres que vayan ingresando para cada fruta. Las existencias se actualizarán al vender o registrar mermas.")
+    st.title("📦 Inventario Flexible - Control por Calibre Opcional y Edición Manual")
+    st.write("Administra el stock en cámaras. Puedes agregar lotes nuevos o **editar directamente las cajas en stock** para sincronizar con tus conteos físicos.")
 
-    tab_inv1, tab_inv2 = st.tabs(["📋 Existencias Actuales por Calibre", "➕ Añadir Lote / Fruta / Calibre"])
+    tab_inv1, tab_inv2, tab_inv3 = st.tabs(["📋 Existencias Actuales & Edición Manual", "➕ Añadir Lote de Fruta", "🗑️ Eliminar Lote"])
 
     with tab_inv1:
         df_inv = get_inventario_cache()
         if not df_inv.empty:
-            st.subheader("📊 Resumen de Existencias por Fruta y Calibre")
+            st.subheader("📊 Tabla de Existencias en Cámaras")
             st.dataframe(df_inv[["id", "lote", "producto", "calibre", "stock_cajas", "costo_unitario_caja", "fecha_ingreso"]], use_container_width=True)
 
             st.markdown("---")
-            st.subheader("🗑️ Eliminar o Ajustar Lote de Inventario")
-            id_inv_del = st.selectbox("Seleccione ID de registro a eliminar:", df_inv["id"].tolist())
-            if st.button("🗑️ Eliminar Registro de Inventario"):
+            st.subheader("✏️ Edición Directa de Stock (Auditoría Física)")
+            st.write("Si realizaste un conteo físico y necesitas corregir el stock exacto de un lote, selecciónalo aquí:")
+            
+            id_edit_stock = st.selectbox("Seleccione ID de Inventario a Modificar:", df_inv["id"].tolist(), key="sel_ed_stk")
+            row_stk_edit = df_inv[df_inv["id"] == id_edit_stock].iloc[0]
+            
+            st.info(f"Producto: **{row_stk_edit['producto']}** | Calibre: **{row_stk_edit['calibre']}** | Lote: **{row_stk_edit['lote']}** | Stock Actual: **{row_stk_edit['stock_cajas']} cajas**")
+
+            nuevo_stock_manual = st.number_input("Nuevo Stock Real (Cajas)", min_value=0.0, value=float(row_stk_edit["stock_cajas"]))
+            motivo_ajuste_stk = st.text_input("Motivo del ajuste manual (Ej. Conteo físico inicial de almacén)")
+
+            if st.button("💾 Actualizar Stock Directo en Sistema"):
                 conn = sqlite3.connect(DB_NAME)
                 cursor = conn.cursor()
-                cursor.execute("DELETE FROM inventario WHERE id = ?", (int(id_inv_del),))
+                cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stock_manual, int(id_edit_stock)))
+                
+                cursor.execute("""
+                    INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
+                    VALUES (?, ?, ?, 'AJUSTE MANUAL', ?, ?, ?, ?)
+                """, (row_stk_edit["lote"], row_stk_edit["producto"], row_stk_edit["calibre"], nuevo_stock_manual, f"Ajuste manual: {motivo_ajuste_stk}", str(date.today()), st.session_state.rol))
+                
                 conn.commit()
                 conn.close()
-                st.success("¡Registro de inventario eliminado!")
+                
+                registrar_auditoria(st.session_state.usuario, st.session_state.rol, "AJUSTE MANUAL INVENTARIO", f"Lote {row_stk_edit['lote']} ajustado a {nuevo_stock_manual} cajas.")
+                st.success("¡Stock actualizado exitosamente!")
                 st.rerun()
         else:
             st.info("No hay inventario registrado en cámaras.")
@@ -437,229 +396,246 @@ elif menu.startswith("2."):
         lista_frutas_cat = df_cat["descripcion"].unique().tolist() if not df_cat.empty else []
 
         if not lista_frutas_cat:
-            st.warning("⚠️ Primero debes registrar tus frutas en el módulo **'6. 🍓 Lista y Gestión de Productos'**.")
+            st.warning("⚠️ Primero debes registrar tus frutas en el módulo **'6. 🍓 Catálogo de Productos'**.")
         else:
-            with st.form("form_ingreso_fruta_calibre"):
-                st.subheader("Registrar Ingreso de Fruta y Calibre Específico")
-                col1, col2 = st.columns(2)
-                with col1:
-                    fruta_sel = st.selectbox("Seleccione Fruta Creada por Ti", lista_frutas_cat)
+            with st.form("form_ingreso_lote_flexible"):
+                st.subheader("Cargar Lote a Cámaras de Frío")
+                c1, c2 = st.columns(2)
+                with c1:
+                    fruta_sel = st.selectbox("Seleccionar Fruta", lista_frutas_cat)
                     lote_num = st.text_input("Número de Lote", value=f"LOTE-{datetime.now().strftime('%Y%m%d')}")
-                    calibre_ingresado = st.text_input("Indica el Calibre (Ej. 80/88, 100/110, Jumbo, Extra, etc.)")
-                with col2:
-                    cajas_ingreso = st.number_input("Cantidad de Cajas que Ingresan", min_value=1.0, value=100.0)
+                    
+                    row_prod_info = df_cat[df_cat["descripcion"] == fruta_sel].iloc[0]
+                    maneja_calibre = row_prod_info["maneja_calibre"]
+                    
+                    if maneja_calibre == "Sí":
+                        calibre_ingresado = st.text_input("Calibre Específico (Ej. 80/88, Extra, etc.)")
+                    else:
+                        calibre_ingresado = "N/A (Sin calibre)"
+                        st.info("Este producto no maneja calibre según su catálogo.")
+                with c2:
+                    cajas_ingreso = st.number_input("Cantidad de Cajas", min_value=1.0, value=100.0)
                     costo_caja = st.number_input("Costo Unitario por Caja ($)", min_value=0.0, value=50.0)
                     fecha_ing = st.date_input("Fecha de Ingreso", value=date.today())
 
-                if st.form_submit_button("💾 Añadir al Inventario"):
-                    if fruta_sel and calibre_ingresado.strip():
+                if st.form_submit_button("💾 Guardar Lote en Inventario"):
+                    if fruta_sel:
                         conn = sqlite3.connect(DB_NAME)
                         cursor = conn.cursor()
                         calibre_clean = calibre_ingresado.strip().upper()
                         
                         cursor.execute("""
-                            SELECT id, stock_cajas FROM inventario 
-                            WHERE producto = ? AND calibre = ? AND lote = ?
-                        """, (fruta_sel, calibre_clean, lote_num.upper()))
-                        row_exist = cursor.fetchone()
-
-                        if row_exist:
-                            inv_id, stock_act = row_exist
-                            nuevo_stk = stock_act + cajas_ingreso
-                            cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stk, inv_id))
-                        else:
-                            cursor.execute("""
-                                INSERT INTO inventario (lote, producto, calibre, stock_cajas, costo_unitario_caja, fecha_ingreso)
-                                VALUES (?, ?, ?, ?, ?, ?)
-                            """, (lote_num.upper(), fruta_sel, calibre_clean, cajas_ingreso, costo_caja, str(fecha_ing)))
+                            INSERT INTO inventario (lote, producto, calibre, stock_cajas, costo_unitario_caja, fecha_ingreso)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        """, (lote_num.upper(), fruta_sel, calibre_clean, cajas_ingreso, costo_caja, str(fecha_ing)))
 
                         cursor.execute("""
                             INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
-                            VALUES (?, ?, ?, 'ENTRADA', ?, 'Ingreso inicial / Carga a cámaras', ?, ?)
+                            VALUES (?, ?, ?, 'ENTRADA', ?, 'Carga inicial a cámaras', ?, ?)
                         """, (lote_num.upper(), fruta_sel, calibre_clean, cajas_ingreso, str(fecha_ing), st.session_state.rol))
 
                         conn.commit()
                         conn.close()
-                        st.success(f"¡Se agregaron {cajas_ingreso} cajas de {fruta_sel} (Calibre {calibre_clean}) al inventario!")
+                        
+                        registrar_auditoria(st.session_state.usuario, st.session_state.rol, "INGRESO INVENTARIO", f"Carga de {cajas_ingreso} cajas de {fruta_sel} Lote {lote_num}")
+                        st.success(f"¡Lote cargado con éxito a cámaras!")
                         st.rerun()
 
+    with tab_inv3:
+        df_inv_del = get_inventario_cache()
+        if not df_inv_del.empty:
+            st.subheader("🗑️ Eliminar Registro de Inventario")
+            id_del_inv = st.selectbox("Seleccione ID de Inventario a Eliminar:", df_inv_del["id"].tolist())
+            if st.button("🗑️ Confirmar Eliminación de Lote"):
+                conn = sqlite3.connect(DB_NAME)
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM inventario WHERE id = ?", (int(id_del_inv),))
+                conn.commit()
+                conn.close()
+                st.success("¡Lote eliminado del sistema!")
+                st.rerun()
+
 # ---------------------------------------------------------
-# 3. VENTAS & PEDIDOS POR CALIBRE
+# 3. GENERADOR DE PEDIDOS (RESERVA AUTOMÁTICA DE STOCK)
 # ---------------------------------------------------------
 elif menu.startswith("3."):
-    st.title("🛒 Generador de Pedidos y Ventas por Calibre")
-    st.write("Selecciona la fruta y el calibre en existencia. El stock se restará automáticamente del inventario al procesar el pedido.")
+    st.title("🛒 Generador de Pedidos B2B (Reserva Inmediata de Stock)")
+    st.write("Al levantar un pedido, la mercancía **se descuenta y reserva de inmediato** de las cámaras de frío. Si el pedido se elimina o edita, el stock regresa automáticamente.")
 
     df_cli_db = get_clientes_cache()
     df_inv_db = get_inventario_cache()
 
-    lista_matrices = df_cli_db["matriz"].unique().tolist() if not df_cli_db.empty else ["BULLKING"]
+    if df_cli_db.empty:
+        st.warning("⚠️ Tu cartera de clientes está vacía. Debes registrar clientes en el **Módulo 8** antes de levantar pedidos.")
+    else:
+        lista_matrices = df_cli_db["matriz"].unique().tolist()
 
-    col_v1, col_v2 = st.columns(2)
-    with col_v1:
-        cli_sel = st.selectbox("Empresa Matriz Cliente", lista_matrices)
-        sucursales_disponibles = df_cli_db[df_cli_db["matriz"] == cli_sel]["sucursal"].tolist() if not df_cli_db.empty else ["Principal"]
-        suc_sel = st.selectbox("Sucursal Específica", sucursales_disponibles)
-    with col_v2:
-        cli_row_sel = df_cli_db[(df_cli_db["matriz"] == cli_sel) & (df_cli_db["sucursal"] == suc_sel)]
-        asesor_asignado = cli_row_sel.iloc[0]["dupla"] if not cli_row_sel.empty else "Tufic (Capital)"
-        st.info(f"👤 **Asesor / Dupla Asignada:** {asesor_asignado}")
+        c_v1, c_v2 = st.columns(2)
+        with c_v1:
+            cli_sel = st.selectbox("Empresa Matriz del Cliente", lista_matrices)
+            sucursales_disponibles = df_cli_db[df_cli_db["matriz"] == cli_sel]["sucursal"].tolist()
+            suc_sel = st.selectbox("Sucursal Específica de Destino", sucursales_disponibles)
+        with c_v2:
+            cli_row_sel = df_cli_db[(df_cli_db["matriz"] == cli_sel) & (df_cli_db["sucursal"] == suc_sel)].iloc[0]
+            asesor_asignado = cli_row_sel["dupla"]
+            limite_cred_cli = cli_row_sel["limite_credito_dolares"]
+            st.info(f"👤 **Asesor / Dupla:** {asesor_asignado} | Límite Crédito: **${limite_cred_cli:,.2f}**")
 
-    st.markdown("---")
-    st.subheader("📦 Selección de Frutas y Calibres para el Pedido")
+        st.markdown("---")
+        st.subheader("📦 Agregar Productos al Carrito de Pedido (Prioridad FIFO)")
 
-    df_inv_disponible = df_inv_db[df_inv_db["stock_cajas"] > 0] if not df_inv_db.empty else pd.DataFrame()
+        df_inv_disponible = df_inv_db[df_inv_db["stock_cajas"] > 0] if not df_inv_db.empty else pd.DataFrame()
 
-    if not df_inv_disponible.empty:
-        frutas_disponibles = df_inv_disponible["producto"].unique().tolist()
-        
-        if "carrito_pedido" not in st.session_state:
-            st.session_state.carrito_pedido = []
-
-        with st.form("form_agregar_item_pedido"):
-            c_p1, c_p2, c_p3, c_p4 = st.columns(4)
-            with c_p1:
-                fruta_ped = st.selectbox("1. Seleccionar Fruta", frutas_disponibles)
+        if not df_inv_disponible.empty:
+            frutas_disponibles = df_inv_disponible["producto"].unique().tolist()
             
-            calibres_disponibles = df_inv_disponible[df_inv_disponible["producto"] == fruta_ped]["calibre"].unique().tolist()
-            
-            with c_p2:
-                calibre_ped = st.selectbox("2. Seleccionar Calibre Disponible", calibres_disponibles)
+            if "carrito_pedido" not in st.session_state:
+                st.session_state.carrito_pedido = []
+
+            with st.form("form_agregar_item_pedido"):
+                c_p1, c_p2, c_p3, c_p4 = st.columns(4)
+                with c_p1:
+                    fruta_ped = st.selectbox("1. Seleccionar Fruta", frutas_disponibles)
                 
-            row_inv_item = df_inv_disponible[(df_inv_disponible["producto"] == fruta_ped) & (df_inv_disponible["calibre"] == calibre_ped)].iloc[0]
-            stock_disponible = row_inv_item["stock_cajas"]
-            costo_item = row_inv_item["costo_unitario_caja"]
+                calibres_disp_fruta = df_inv_disponible[df_inv_disponible["producto"] == fruta_ped]["calibre"].unique().tolist()
+                
+                with c_p2:
+                    calibre_ped = st.selectbox("2. Seleccionar Calibre Disponible", calibres_disp_fruta)
+                    
+                # Regla FIFO: Sugerir el lote más antiguo con stock
+                df_lotes_fifo = df_inv_disponible[(df_inv_disponible["producto"] == fruta_ped) & (df_inv_disponible["calibre"] == calibre_ped)].sort_values(by="fecha_ingreso", ascending=True)
+                row_inv_item = df_lotes_fifo.iloc[0]
+                
+                stock_disponible = row_inv_item["stock_cajas"]
+                costo_item = row_inv_item["costo_unitario_caja"]
+                lote_sugerido = row_inv_item["lote"]
 
-            with c_p3:
-                st.caption(f"Stock disponible: **{stock_disponible} cajas**")
-                cajas_ped = st.number_input("3. Cantidad de Cajas", min_value=1.0, max_value=float(stock_disponible), value=10.0)
-            with c_p4:
-                precio_caja_ped = st.number_input("4. Precio por Caja ($)", min_value=0.0, value=float(costo_item * 1.3))
+                with c_p3:
+                    st.caption(f"Lote FIFO: {lote_sugerido} | Stock: **{stock_disponible} cajas**")
+                    cajas_ped = st.number_input("3. Cantidad de Cajas", min_value=1.0, max_value=float(stock_disponible), value=10.0)
+                with c_p4:
+                    precio_caja_ped = st.number_input("4. Precio por Caja ($)", min_value=0.0, value=float(costo_item * 1.3))
 
-            if st.form_submit_button("➕ Agregar Producto al Pedido"):
-                subtotal = cajas_ped * precio_caja_ped
-                st.session_state.carrito_pedido.append({
-                    "inventario_id": int(row_inv_item["id"]),
-                    "lote": row_inv_item["lote"],
-                    "producto": fruta_ped,
-                    "calibre": calibre_ped,
-                    "cajas": cajas_ped,
-                    "costo_unitario": costo_item,
-                    "precio_caja": precio_caja_ped,
-                    "subtotal": subtotal
-                })
-                st.success(f"¡Agregado: {cajas_ped} cajas de {fruta_ped} ({calibre_ped})!")
-                st.rerun()
-
-        if st.session_state.carrito_pedido:
-            st.markdown("### 🛒 Detalle del Pedido Actual")
-            df_cart = pd.DataFrame(st.session_state.carrito_pedido)
-            st.dataframe(df_cart[["producto", "calibre", "lote", "cajas", "precio_caja", "subtotal"]], use_container_width=True)
-
-            col_bot1, col_bot2 = st.columns(2)
-            with col_bot1:
-                monto_total_ped = df_cart["subtotal"].sum()
-                st.markdown(f"### **Total del Pedido:** `${monto_total_ped:,.2f} USD`")
-            with col_bot2:
-                if st.button("🗑️ Vaciar Carrito"):
-                    st.session_state.carrito_pedido = []
+                if st.form_submit_button("➕ Agregar al Carrito"):
+                    subtotal = cajas_ped * precio_caja_ped
+                    st.session_state.carrito_pedido.append({
+                        "inventario_id": int(row_inv_item["id"]),
+                        "lote": lote_sugerido,
+                        "producto": fruta_ped,
+                        "calibre": calibre_ped,
+                        "cajas": cajas_ped,
+                        "costo_unitario": costo_item,
+                        "precio_caja": precio_caja_ped,
+                        "subtotal": subtotal
+                    })
+                    st.success(f"¡Agregado: {cajas_ped} cajas de {fruta_ped} ({calibre_ped})!")
                     st.rerun()
 
-            if st.button("💾 CONFIRMAR PEDIDO Y RESTAR DEL INVENTARIO"):
-                try:
-                    conn = sqlite3.connect(DB_NAME)
-                    cursor = conn.cursor()
-                    cursor.execute("BEGIN TRANSACTION;")
+            if st.session_state.carrito_pedido:
+                st.markdown("### 🛒 Detalle del Pedido Actual")
+                df_cart = pd.DataFrame(st.session_state.carrito_pedido)
+                st.dataframe(df_cart[["producto", "calibre", "lote", "cajas", "precio_caja", "subtotal"]], use_container_width=True)
 
-                    nro_p = f"PED-{datetime.now().strftime('%Y%m%d%H%M')}"
-                    costo_total_ped = sum(item["cajas"] * item["costo_unitario"] for item in st.session_state.carrito_pedido)
-                    ganancia_ped = monto_total_ped - costo_total_ped
+                monto_total_ped = df_cart["subtotal"].sum()
+                st.markdown(f"### **Monto Total del Pedido:** `${monto_total_ped:,.2f} USD`")
 
-                    cursor.execute("""
-                        INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
-                        VALUES (?, ?, ?, 'Sistema Ventas', ?, 'Cliente Final', 'Venta directa por calibre', ?, ?, ?, ?, 'Pendiente', ?)
-                    """, (nro_p, cli_sel, suc_sel, asesor_asignado, str(date.today()), monto_total_ped, costo_total_ped, ganancia_ped, json.dumps(st.session_state.carrito_pedido)))
+                if st.button("💾 CONFIRMAR PEDIDO Y RESERVAR STOCK EN CÁMARAS"):
+                    try:
+                        conn = sqlite3.connect(DB_NAME)
+                        cursor = conn.cursor()
+                        cursor.execute("BEGIN TRANSACTION;")
 
-                    cursor.execute("""
-                        INSERT INTO cobranza (nro_factura, cliente, fecha_emision, fecha_vencimiento, monto_factura, monto_pagado, estatus_pago)
-                        VALUES (?, ?, ?, ?, ?, 0.0, 'Pendiente')
-                    """, (f"FAC-{nro_p}", cli_sel, str(date.today()), str(date.today() + pd.Timedelta(days=15)), monto_total_ped))
-
-                    cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ? AND sucursal = ?", (str(date.today()), cli_sel, suc_sel))
-
-                    for item in st.session_state.carrito_pedido:
-                        cursor.execute("SELECT stock_cajas FROM inventario WHERE id = ?", (item["inventario_id"],))
-                        stk_act = cursor.fetchone()[0]
-                        nuevo_stk = max(0.0, stk_act - item["cajas"])
-                        
-                        cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stk, item["inventario_id"]))
+                        nro_p = f"PED-{datetime.now().strftime('%Y%m%d%H%M')}"
+                        costo_total_ped = sum(item["cajas"] * item["costo_unitario"] for item in st.session_state.carrito_pedido)
+                        ganancia_ped = monto_total_ped - costo_total_ped
 
                         cursor.execute("""
-                            INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
-                            VALUES (?, ?, ?, 'SALIDA', ?, ?, ?, ?)
-                        """, (item["lote"], item["producto"], item["calibre"], item["cajas"], f"Venta Pedido {nro_p}", str(date.today()), st.session_state.rol))
+                            INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
+                            VALUES (?, ?, ?, ?, ?, ?, 'Pedido B2B - Reserva de Stock', ?, ?, ?, ?, 'Reservado / En Espera', ?)
+                        """, (nro_p, cli_sel, suc_sel, st.session_state.rol, asesor_asignado, "Cliente Final", str(date.today()), monto_total_ped, costo_total_ped, ganancia_ped, json.dumps(st.session_state.carrito_pedido)))
 
-                    conn.commit()
-                    conn.close()
+                        cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ? AND sucursal = ?", (str(date.today()), cli_sel, suc_sel))
 
-                    st.session_state.carrito_pedido = []
-                    st.success(f"¡Pedido {nro_p} procesado con éxito! Las existencias fueron descontadas y se generó su factura CxC.")
-                    st.rerun()
+                        for item in st.session_state.carrito_pedido:
+                            cursor.execute("SELECT stock_cajas FROM inventario WHERE id = ?", (item["inventario_id"],))
+                            stk_act = cursor.fetchone()[0]
+                            nuevo_stk = max(0.0, stk_act - item["cajas"])
+                            
+                            cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stk, item["inventario_id"]))
 
-                except Exception as e:
-                    if 'conn' in locals():
-                        conn.rollback()
+                            cursor.execute("""
+                                INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
+                                VALUES (?, ?, ?, 'RESERVA SALIDA', ?, ?, ?, ?)
+                            """, (item["lote"], item["producto"], item["calibre"], item["cajas"], f"Reserva Pedido {nro_p}", str(date.today()), st.session_state.rol))
+
+                        conn.commit()
                         conn.close()
-                    st.error(f"Error procesando la transacción: {e}")
-    else:
-        st.warning("No hay productos con existencias en cámaras de frío. Ingrese lotes en el módulo de Inventario.")
+
+                        registrar_auditoria(st.session_state.usuario, st.session_state.rol, "REGISTRO PEDIDO", f"Pedido {nro_p} creado para {cli_sel} - {suc_sel} por ${monto_total_ped:,.2f}")
+                        st.session_state.carrito_pedido = []
+                        st.success(f"¡Pedido {nro_p} procesado con éxito! Las existencias fueron descontadas de cámaras de frío.")
+                        st.rerun()
+
+                    except Exception as e:
+                        if 'conn' in locals():
+                            conn.rollback()
+                            conn.close()
+                        st.error(f"Error procesando la transacción: {e}")
+        else:
+            st.warning("No hay existencias disponibles en cámaras de frío.")
 
 # ---------------------------------------------------------
-# 4. VENTAS & COTIZADOR PRO (CON PRECIO POR KG VISIBLE)
+# 4. COTIZADOR PRO (CARTERA EXCLUSIVA DE COTIZACIONES)
 # ---------------------------------------------------------
 elif menu.startswith("4."):
-    st.title("📄 Cotizador B2B Profesional con Conversión de Precio por KG")
-    st.write("Modifica los precios y visualiza automáticamente la conversión de precio por kilogramo y el margen de ganancia antes de exportar la cotización oficial.")
+    st.title("📄 Cotizador B2B Profesional (Cartera de Cotizaciones Aislada)")
+    st.write("Genera listas de precios y cotizaciones formales utilizando una lista de contactos propia y exclusiva de este módulo, sin alterar tu cartera de clientes oficial.")
 
     df_mat = get_catalogo_cache()
-    df_cli_db = get_clientes_cache()
-    lista_matrices = df_cli_db["matriz"].unique().tolist() if not df_cli_db.empty else ["BULLKING"]
 
-    c_v1, c_v2 = st.columns(2)
-    with c_v1:
-        cli_sel = st.selectbox("Empresa Matriz", lista_matrices)
-        sucursales_disponibles = df_cli_db[df_cli_db["matriz"] == cli_sel]["sucursal"].tolist() if not df_cli_db.empty else ["Principal"]
-        suc_sel = st.selectbox("Sucursal Específica", sucursales_disponibles)
-    with c_v2:
-        cli_row_sel = df_cli_db[(df_cli_db["matriz"] == cli_sel) & (df_cli_db["sucursal"] == suc_sel)]
-        asesor_asignado = cli_row_sel.iloc[0]["dupla"] if not cli_row_sel.empty else "Tufic (Capital)"
-        st.info(f"👤 **Asesor / Dupla Asignada:** {asesor_asignado}")
-        vig_sel = st.date_input("Validez de precios:", value=date.today() + pd.Timedelta(days=7))
+    # Gestión de lista de clientes de cotizaciones
+    conn = sqlite3.connect(DB_NAME)
+    df_cli_cot = pd.read_sql("SELECT * FROM clientes_cotizaciones", conn)
+    conn.close()
+
+    with st.expander("➕ Gestionar Clientes / Destinatarios Exclusivos para Cotizaciones"):
+        with st.form("form_add_cot_cli"):
+            nombre_cot = st.text_input("Nombre del Cliente, Prospecto o Asesor Solicitante")
+            empresa_cot = st.text_input("Empresa o Referencia")
+            obs_cot = st.text_input("Observación")
+            if st.form_submit_button("Guardar en Lista de Cotizaciones"):
+                if nombre_cot:
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    cursor.execute("INSERT INTO clientes_cotizaciones (nombre_cliente_o_asesor, empresa, observacion) VALUES (?, ?, ?)", (nombre_cot, empresa_cot, obs_cot))
+                    conn.commit()
+                    conn.close()
+                    st.success("¡Destinatario agregado a cotizaciones!")
+                    st.rerun()
+
+    if not df_cli_cot.empty:
+        lista_dest_cot = (df_cli_cot["nombre_cliente_o_asesor"] + " (" + df_cli_cot["empresa"] + ")").tolist()
+        dest_sel = st.selectbox("Seleccionar Destinatario de la Cotización", lista_dest_cot)
+    else:
+        dest_sel = "Cliente General / Mostrador"
+
+    vig_sel = st.date_input("Validez de la cotización:", value=date.today() + pd.Timedelta(days=7))
 
     st.markdown("---")
-    st.subheader("📋 Cuadro de Precios con Cálculo Automático por KG")
+    st.subheader("📋 Modificar Precios para la Cotización")
 
     if not df_mat.empty:
-        df_editor_v = df_mat[["codigo", "barra", "descripcion", "calibre", "clasificacion_calidad", "empaque_kg", "costo_caja", "precio_caja"]].copy()
-        df_editor_v.columns = ["CÓDIGO", "BARRA", "DESCRIPCIÓN", "CALIBRE", "CALIDAD", "EMPAQUE/KG", "COSTO CAJA ($)", "PRECIO CAJA ($)"]
+        df_editor_v = df_mat[["codigo", "descripcion", "calibre", "clasificacion_calidad", "empaque_kg", "costo_caja", "precio_caja"]].copy()
+        df_editor_v.columns = ["CÓDIGO", "DESCRIPCIÓN", "CALIBRE", "CALIDAD", "EMPAQUE/KG", "COSTO CAJA ($)", "PRECIO CAJA ($)"]
 
-        # Editor interactivo donde puedes cambiar el precio por caja
         df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra")
 
-        # CÁLCULO AUTOMÁTICO VISIBLE DEL PRECIO POR KG
         df_editado_venta["PRECIO POR KG ($)"] = df_editado_venta.apply(
             lambda r: round(r["PRECIO CAJA ($)"] / r["EMPAQUE/KG"], 2) if r["EMPAQUE/KG"] > 0 else 0.0, axis=1
         )
-        df_editado_venta["MARGEN (%)"] = df_editado_venta.apply(
-            lambda r: round(((r["PRECIO CAJA ($)"] - r["COSTO CAJA ($)"]) / r["PRECIO CAJA ($)"] * 100), 1) if r["PRECIO CAJA ($)"] > 0 else 0.0, axis=1
-        )
-
-        st.markdown("### 📊 Vista Previa de Precios por Caja y por Kilogramo")
-        st.dataframe(df_editado_venta[["CÓDIGO", "DESCRIPCIÓN", "CALIBRE", "CALIDAD", "EMPAQUE/KG", "PRECIO CAJA ($)", "PRECIO POR KG ($)", "MARGEN (%)"]], use_container_width=True)
 
         st.markdown("---")
-        st.subheader("📄 Generar Formato Imprimible")
-        if st.button("📥 Generar Documento HTML de Cotización"):
+        if st.button("📥 Generar Documento HTML de Cotización con Logo"):
             logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
             
             html_doc = f"""
@@ -673,12 +649,11 @@ elif menu.startswith("4."):
                     .logo {{ max-height: 80px; width: auto; }}
                     .intro-text {{ margin-top: 20px; font-family: Arial, sans-serif; font-size: 12px; line-height: 1.6; color: #333; text-align: left; }}
                     h3 {{ font-family: Arial, sans-serif; font-size: 14px; text-align: left; margin-top: 25px; }}
-                    table {{ width: 100%; min-width: 650px; border-collapse: collapse; margin-top: 20px; text-align: left; }}
-                    th, td {{ border: 1px solid #bbb; padding: 12px 15px; text-align: left; font-family: Arial, sans-serif; font-size: 12px; }}
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; }}
+                    th, td {{ border: 1px solid #bbb; padding: 10px; text-align: left; font-size: 12px; }}
                     th {{ background-color: #f2f2f2; font-weight: bold; }}
-                    p {{ font-family: Arial, sans-serif; font-size: 12px; text-align: left; }}
-                    .signature-container {{ margin-top: 35px; width: 100%; text-align: center; }}
-                    .signature {{ font-family: Arial, sans-serif; font-size: 12px; font-weight: bold; color: #111; display: inline-block; text-align: center; line-height: 1.5; }}
+                    .signature-container {{ margin-top: 35px; text-align: center; }}
+                    .signature {{ font-weight: bold; display: inline-block; text-align: center; }}
                 </style>
             </head>
             <body>
@@ -689,17 +664,16 @@ elif menu.startswith("4."):
                     </div>
                     <div style="text-align: right; font-size: 12px;">
                         <strong>Fecha:</strong> {date.today()}<br>
-                        <strong>Cliente:</strong> {cli_sel} - {suc_sel}<br>
-                        <strong>Asesor:</strong> {asesor_asignado}
+                        <strong>Destinatario:</strong> {dest_sel}
                     </div>
                 </div>
                 
                 <div class="intro-text">
-                    A continuación encontrará nuestra lista oficial de precios por caja y kilogramo.<br>
-                    Nuestra alianza con los mejores productos de frutas frescas a nivel mundial y el correcto manejo del producto garantiza la calidad y buen servicio que nos caracteriza.
+                    A continuación presentamos nuestra cotización oficial de productos frescos.<br>
+                    Garantizamos la calidad y óptima cadena de frío en cada entrega.
                 </div>
 
-                <h3>Cotización Comercial Oficial</h3>
+                <h3>Cotización Comercial</h3>
                 <table>
                     <tr>
                         <th>Código</th>
@@ -716,12 +690,11 @@ elif menu.startswith("4."):
             html_doc += f"""
                 </table>
                 <br>
-                <p><strong>Condiciones Comerciales:</strong> Sujeto a disponibilidad en cámaras de frío. Validez de precios hasta {vig_sel}.</p>
-                
+                <p><strong>Condiciones:</strong> Sujeto a stock en cámaras. Válido hasta {vig_sel}.</p>
                 <div class="signature-container">
                     <div class="signature">
                         Atentamente;<br>
-                        Gcia. De Ventas<br>
+                        Gcia. de Ventas / Comercialización<br>
                         FRUMIX C.A.
                     </div>
                 </div>
@@ -729,359 +702,273 @@ elif menu.startswith("4."):
             </html>
             """
             st.download_button(
-                label="💾 Descargar Cotización en HTML para Imprimir / WhatsApp",
+                label="💾 Descargar Archivo HTML de Cotización",
                 data=html_doc,
-                file_name=f"Cotizacion_{cli_sel.replace(' ', '_')}_{suc_sel.replace(' ', '_')}.html",
+                file_name=f"Cotizacion_Frumix_{date.today()}.html",
                 mime="text/html"
             )
     else:
-        st.info("No hay productos en el catálogo. Agrégalos en el módulo '6. Lista y Gestión de Productos'.")
+        st.info("No hay productos en el catálogo.")
 
 # ---------------------------------------------------------
-# 5. REGISTRO MANUAL DE PEDIDOS & FACTURAS
+# 5. REGISTRO MANUAL DE FACTURACIÓN & CXC INDEPENDIENTE
 # ---------------------------------------------------------
 elif menu.startswith("5."):
-    st.title("📋 Registro Manual de Pedidos y Facturas con Descuento de Stock")
-    st.write("Ingresa un pedido o factura de forma manual seleccionando el lote y calibre exacto. **El sistema restará automáticamente las cajas de las cámaras de frío y generará su CxC**.")
+    st.title("📋 Registro Manual de Facturación y Cuentas por Cobrar")
+    st.write("Emite facturas comerciales de manera independiente al momento de confirmar el despacho.")
 
-    df_cli_m = get_clientes_cache()
-    df_inv_m = get_inventario_cache()
-    df_inv_con_stock = df_inv_m[df_inv_m["stock_cajas"] > 0] if not df_inv_m.empty else pd.DataFrame()
+    conn = sqlite3.connect(DB_NAME)
+    df_cli_fac = pd.read_sql("SELECT DISTINCT matriz FROM clientes", conn)
+    conn.close()
+    lista_mat_f = df_cli_fac["matriz"].tolist() if not df_cli_fac.empty else []
 
-    lista_mat_ped = df_cli_m["matriz"].tolist() if not df_cli_m.empty else ["BULLKING"]
+    if lista_mat_f:
+        with st.form("form_factura_manual"):
+            nro_factura_m = st.text_input("Nro. de Factura Oficial (Ej. FAC-00201)", value="FAC-")
+            cliente_fac_sel = st.selectbox("Empresa Matriz Cliente", lista_mat_f)
+            monto_fac_m = st.number_input("Monto Total de la Factura ($)", min_value=1.0, value=1000.0)
+            dias_venc_m = st.number_input("Días de Crédito Otorgados", min_value=1, value=15)
+            fecha_em_m = st.date_input("Fecha de Emisión", value=date.today())
 
-    if not df_inv_con_stock.empty:
-        with st.form("form_registro_pedido_manual_stock"):
-            st.subheader("📝 Datos Generales del Pedido y Facturación")
-            c_pm1, c_pm2 = st.columns(2)
-            with c_pm1:
-                nro_ped_m = st.text_input("Nro. de Pedido (Ej. PED-2026-001)", value="PED-2026-")
-                nro_fac_m = st.text_input("Nro. de Factura Oficial (Ej. FAC-00123)", value="FAC-")
-                cliente_m = st.selectbox("Cliente Matriz", lista_mat_ped)
-                realizado_por_m = st.text_input("¿Quién realizó el pedido?")
-            with c_pm2:
-                atendido_por_m = st.selectbox("Asesor / Dupla Asignada", ["Ladimir (Occidente)", "Tufic (Capital)", "Wilmer (Oriente)"])
-                recibido_por_m = st.text_input("¿Quién recibió en destino?")
-                dias_credito = st.number_input("Días de Crédito para Factura", min_value=1, value=15)
-                fecha_ped_m = st.date_input("Fecha del Pedido / Factura", value=date.today())
+            if st.form_submit_button("💾 Registrar Factura y Activar Cuenta por Cobrar"):
+                if nro_factura_m:
+                    fecha_venc_calc = fecha_em_m + pd.Timedelta(days=int(dias_venc_m))
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO cobranza (nro_factura, cliente, fecha_emision, fecha_vencimiento, monto_factura, monto_pagado, estatus_pago)
+                        VALUES (?, ?, ?, ?, ?, 0.0, 'Pendiente')
+                    """, (nro_factura_m.upper(), cliente_fac_sel, str(fecha_em_m), str(fecha_venc_calc), monto_fac_m))
+                    conn.commit()
+                    conn.close()
 
-            st.markdown("---")
-            st.subheader("📦 Selección de Lote, Calibre y Cantidad a Descontar")
-            
-            opciones_lotes_man = []
-            for _, r in df_inv_con_stock.iterrows():
-                opciones_lotes_man.append(f"ID: {r['id']} | Lote: {r['lote']} | {r['producto']} (Calibre: {r['calibre']}) - Stock: {r['stock_cajas']} cajas")
-
-            lote_sel_str_m = st.selectbox("Lote y Producto en Cámara", opciones_lotes_man)
-            id_inv_sel_m = int(lote_sel_str_m.split("|")[0].replace("ID:", "").strip())
-            row_lote_sel_m = df_inv_con_stock[df_inv_con_stock["id"] == id_inv_sel_m].iloc[0]
-
-            st.info(f"Costo Unitario: **${row_lote_sel_m['costo_unitario_caja']:,.2f}** | Stock Disponible: **{row_lote_sel_m['stock_cajas']} cajas**")
-
-            cajas_manuales = st.number_input("Cantidad de Cajas Vendidas", min_value=1.0, max_value=float(row_lote_sel_m["stock_cajas"]), value=10.0)
-            precio_caja_manual = st.number_input("Precio de Venta por Caja ($)", min_value=0.0, value=float(row_lote_sel_m["costo_unitario_caja"] * 1.3))
-
-            datos_imp_m = st.text_area("Notas importantes / Observaciones del despacho:")
-
-            if st.form_submit_button("💾 GUARDAR PEDIDO, FACTURA Y RESTAR DEL INVENTARIO"):
-                if nro_ped_m and nro_fac_m and realizado_por_m:
-                    try:
-                        conn = sqlite3.connect(DB_NAME)
-                        cursor = conn.cursor()
-                        cursor.execute("BEGIN TRANSACTION;")
-
-                        monto_total_m = cajas_manuales * precio_caja_manual
-                        costo_total_m = cajas_manuales * row_lote_sel_m["costo_unitario_caja"]
-                        ganancia_m = monto_total_m - costo_total_m
-
-                        detalle_json_manual = json.dumps([{
-                            "inventario_id": int(row_lote_sel_m["id"]),
-                            "lote": row_lote_sel_m["lote"],
-                            "producto": row_lote_sel_m["producto"],
-                            "calibre": row_lote_sel_m["calibre"],
-                            "cajas": cajas_manuales,
-                            "costo_unitario": row_lote_sel_m["costo_unitario_caja"],
-                            "precio_caja": precio_caja_manual,
-                            "subtotal": monto_total_m
-                        }])
-
-                        cursor.execute("""
-                            INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', ?)
-                        """, (nro_ped_m.upper(), cliente_m, "Sucursal Principal", realizado_por_m, atendido_por_m, recibido_por_m, datos_imp_m, str(fecha_ped_m), monto_total_m, costo_total_m, ganancia_m, detalle_json_manual))
-
-                        fecha_venc_m = fecha_ped_m + pd.Timedelta(days=int(dias_credito))
-                        cursor.execute("""
-                            INSERT INTO cobranza (nro_factura, cliente, fecha_emision, fecha_vencimiento, monto_factura, monto_pagado, estatus_pago)
-                            VALUES (?, ?, ?, ?, ?, 0.0, 'Pendiente')
-                        """, (nro_fac_m.upper(), cliente_m, str(fecha_ped_m), str(fecha_venc_m), monto_total_m))
-
-                        cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ?", (str(fecha_ped_m), cliente_m))
-
-                        nuevo_stk_m = max(0.0, row_lote_sel_m["stock_cajas"] - cajas_manuales)
-                        cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stk_m, id_inv_sel_m))
-
-                        cursor.execute("""
-                            INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
-                            VALUES (?, ?, ?, 'SALIDA', ?, ?, ?, ?)
-                        """, (row_lote_sel_m["lote"], row_lote_sel_m["producto"], row_lote_sel["calibre"], cajas_manuales, f"Pedido Manual {nro_ped_m} / Factura {nro_fac_m}", str(fecha_ped_m), st.session_state.rol))
-
-                        conn.commit()
-                        conn.close()
-
-                        st.success(f"¡Pedido {nro_ped_m} y Factura {nro_fac_m} registrados con éxito! Se descontaron {cajas_manuales} cajas de inventario.")
-                        st.rerun()
-
-                    except Exception as e:
-                        if 'conn' in locals():
-                            conn.rollback()
-                            conn.close()
-                        st.error(f"Error procesando la transacción: {e}")
-                else:
-                    st.error("Por favor complete los campos obligatorios (Nro. de Pedido, Factura y Quién realizó).")
+                    registrar_auditoria(st.session_state.usuario, st.session_state.rol, "REGISTRO FACTURA", f"Factura {nro_factura_m} por ${monto_fac_m:,.2f} para {cliente_fac_sel}")
+                    st.success(f"¡Factura {nro_factura_m} registrada con éxito en Cuentas por Cobrar!")
+                    st.rerun()
     else:
-        st.warning("No hay existencias en inventario para procesar pedidos manuales. Ingrese lotes en el Módulo 2.")
+        st.warning("⚠️ Debes registrar clientes en la cartera oficial (Módulo 8) para poder facturarles.")
 
 # ---------------------------------------------------------
-# 6. LISTA Y GESTIÓN DE PRODUCTOS
+# 6. CATÁLOGO DE PRODUCTOS (CALIBRE OPCIONAL)
 # ---------------------------------------------------------
 elif menu.startswith("6."):
-    st.title("🍓 Catálogo Oficial de Productos - Configuración de Calidad y Calibre")
-    st.write("Aquí creas y defines tus frutas, indicando manualmente si es **Premium**, **Con detalle** o **A granel** y su calibre base.")
+    st.title("🍓 Catálogo Oficial de Productos - Calibre Opcional")
+    st.write("Define tus productos indicando si manejan calibre o si se venden a granel/empaque directo.")
 
-    tab_prod1, tab_prod2, tab_prod3 = st.tabs(["📋 Catálogo Actual", "✏️ Editar Producto", "➕ Registrar Nuevo Producto"])
+    tab_p1, tab_p2, tab_p3 = st.tabs(["📋 Catálogo Actual", "✏️ Editar Producto", "➕ Registrar Nuevo Producto"])
 
-    with tab_prod1:
+    with tab_p1:
         df_cat = get_catalogo_cache()
         if not df_cat.empty:
-            st.dataframe(df_cat[["id", "codigo", "descripcion", "calibre", "clasificacion_calidad", "empaque_kg", "costo_caja", "precio_caja"]], use_container_width=True)
+            st.dataframe(df_cat, use_container_width=True)
             
             st.markdown("---")
-            st.subheader("🗑️ Eliminar Producto del Catálogo")
-            prod_id_del = st.selectbox("Seleccione ID de producto a eliminar:", df_cat["id"].tolist())
-            if st.button("🗑️ Confirmar Eliminación"):
+            id_p_del = st.selectbox("Seleccione ID de producto a eliminar:", df_cat["id"].tolist())
+            if st.button("🗑️ Eliminar Producto"):
                 conn = sqlite3.connect(DB_NAME)
                 cursor = conn.cursor()
-                cursor.execute("DELETE FROM matriz_precios WHERE id = ?", (int(prod_id_del),))
+                cursor.execute("DELETE FROM matriz_precios WHERE id = ?", (int(id_p_del),))
                 conn.commit()
                 conn.close()
                 st.success("¡Producto eliminado!")
                 st.rerun()
         else:
-            st.info("Tu catálogo está totalmente limpio. Agrega tu primer producto en la pestaña 'Registrar Nuevo Producto'.")
+            st.info("Catálogo vacío.")
 
-    with tab_prod2:
+    with tab_p2:
         df_cat_ed = get_catalogo_cache()
         if not df_cat_ed.empty:
-            st.subheader("✏️ Modificar Detalle, Calidad y Calibre de tus Frutas")
-            id_cat_ed = st.selectbox("Seleccione ID de producto a editar:", df_cat_ed["id"].tolist(), key="sel_ed_prod")
-            row_prod_ed = df_cat_ed[df_cat_ed["id"] == id_cat_ed].iloc[0]
+            id_ce = st.selectbox("Seleccionar ID para Editar:", df_cat_ed["id"].tolist(), key="ed_p_cat")
+            row_ce = df_cat_ed[df_cat_ed["id"] == id_ce].iloc[0]
 
-            with st.form("form_edicion_individual_prod"):
-                e_cod = st.text_input("Código", value=row_prod_ed["codigo"])
-                e_desc = st.text_input("Descripción de la Fruta", value=row_prod_ed["descripcion"])
-                e_cal = st.text_input("Calibre", value=row_prod_ed["calibre"])
+            with st.form("form_edit_prod"):
+                ec_cod = st.text_input("Código", value=row_ce["codigo"])
+                ec_desc = st.text_input("Descripción", value=row_ce["descripcion"])
                 
-                calidad_actual = row_prod_ed["clasificacion_calidad"]
-                opciones_calidad = ["Premium", "Con detalle", "A granel"]
-                idx_cal = opciones_calidad.index(calidad_actual) if calidad_actual in opciones_calidad else 0
-                e_calidad = st.selectbox("Clasificación de Calidad", opciones_calidad, index=idx_cal)
+                cal_opc = ["Sí", "No"]
+                idx_c = cal_opc.index(row_ce["maneja_calibre"]) if row_ce["maneja_calibre"] in cal_opc else 0
+                ec_maneja = st.selectbox("¿Maneja Calibre?", cal_opc, index=idx_c)
                 
-                e_emp = st.number_input("Empaque (Kg)", min_value=0.01, value=float(row_prod_ed["empaque_kg"]))
-                e_cos = st.number_input("Costo Caja ($)", min_value=0.0, value=float(row_prod_ed["costo_caja"]))
-                e_pre = st.number_input("Precio Caja ($)", min_value=0.0, value=float(row_prod_ed["precio_caja"]))
+                cal_calidad = ["Premium", "Con detalle", "A granel"]
+                idx_q = cal_calidad.index(row_ce["clasificacion_calidad"]) if row_ce["clasificacion_calidad"] in cal_calidad else 0
+                ec_calidad = st.selectbox("Calidad", cal_calidad, index=idx_q)
+
+                ec_emp = st.number_input("Empaque (Kg)", min_value=0.01, value=float(row_ce["empaque_kg"]))
+                ec_cos = st.number_input("Costo Caja ($)", min_value=0.0, value=float(row_ce["costo_caja"]))
+                ec_pre = st.number_input("Precio Caja ($)", min_value=0.0, value=float(row_ce["precio_caja"]))
 
                 if st.form_submit_button("💾 Guardar Cambios"):
-                    p_kg_val = round(e_pre / e_emp, 2) if e_emp > 0 else 0.0
-                    mrg_val = round(((e_pre - e_cos) / e_pre * 100), 1) if e_pre > 0 else 0.0
+                    p_kg = round(ec_pre / ec_emp, 2) if ec_emp > 0 else 0.0
+                    mrg = round(((ec_pre - ec_cos) / ec_pre * 100), 1) if ec_pre > 0 else 0.0
                     
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
                     cursor.execute("""
                         UPDATE matriz_precios 
-                        SET codigo = ?, descripcion = ?, calibre = ?, clasificacion_calidad = ?, empaque_kg = ?, costo_caja = ?, precio_caja = ?, precio_kg = ?, margen_pct = ?
+                        SET codigo = ?, descripcion = ?, maneja_calibre = ?, clasificacion_calidad = ?, empaque_kg = ?, costo_caja = ?, precio_caja = ?, precio_kg = ?, margen_pct = ?
                         WHERE id = ?
-                    """, (e_cod, e_desc.upper(), e_cal, e_calidad, e_emp, e_cos, e_pre, p_kg_val, mrg_val, int(id_cat_ed)))
+                    """, (ec_cod, ec_desc.upper(), ec_maneja, ec_calidad, ec_emp, ec_cos, ec_pre, p_kg, mrg, int(id_ce)))
                     conn.commit()
                     conn.close()
-                    st.success("¡Producto actualizado exitosamente!")
+                    st.success("¡Producto actualizado!")
                     st.rerun()
 
-    with tab_prod3:
-        with st.form("form_nuevo_producto_manual"):
-            st.subheader("Crear Nuevo Producto en tu Catálogo")
-            cp1, cp2 = st.columns(2)
-            with cp1:
-                n_cod = st.text_input("Código del Producto (Ej. 759106)")
-                n_desc = st.text_input("Nombre de la Fruta (Ej. MANZANA GALA)")
-                n_calibre = st.text_input("Calibre (Ej. 80/88, Granel, etc.)")
-                n_calidad = st.selectbox("Clasificación de Calidad", ["Premium", "Con detalle", "A granel"])
-            with cp2:
-                n_emp = st.number_input("Empaque en Kilogramos por Caja", min_value=0.01, value=19.0)
-                n_costo = st.number_input("Costo Unitario por Caja ($)", min_value=0.0, value=50.0)
-                n_precio = st.number_input("Precio de Venta por Caja ($)", min_value=0.0, value=70.0)
+    with tab_p3:
+        with st.form("form_nuevo_prod"):
+            np_cod = st.text_input("Código (Ej. 759105)")
+            np_desc = st.text_input("Descripción de la Fruta")
+            np_maneja = st.selectbox("¿Maneja Calibre?", ["Sí", "No"])
+            np_calidad = st.selectbox("Calidad", ["Premium", "Con detalle", "A granel"])
+            np_emp = st.number_input("Empaque en Kg por Caja", min_value=0.01, value=19.0)
+            np_cos = st.number_input("Costo por Caja ($)", min_value=0.0, value=45.0)
+            np_pre = st.number_input("Precio por Caja ($)", min_value=0.0, value=65.0)
 
             if st.form_submit_button("Guardar Nuevo Producto"):
-                if n_cod and n_desc:
-                    p_kg_n = round(n_precio / n_emp, 2) if n_emp > 0 else 0.0
-                    mrg_n = round(((n_precio - n_costo) / n_precio * 100), 1) if n_precio > 0 else 0.0
+                if np_cod and np_desc:
+                    p_kg = round(np_pre / np_emp, 2) if np_emp > 0 else 0.0
+                    mrg = round(((np_pre - np_cos) / np_pre * 100), 1) if np_pre > 0 else 0.0
                     
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
                     cursor.execute("""
-                        INSERT INTO matriz_precios (codigo, barra, descripcion, calibre, clasificacion_calidad, empaque_kg, costo_caja, precio_caja, precio_kg, margen_pct)
+                        INSERT INTO matriz_precios (codigo, barra, descripcion, maneja_calibre, clasificacion_calidad, empaque_kg, costo_caja, precio_caja, precio_kg, margen_pct)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (n_cod, n_cod, n_desc.upper(), n_calibre, n_calidad, n_emp, n_costo, n_precio, p_kg_n, mrg_n))
+                    """, (np_cod, np_cod, np_desc.upper(), np_maneja, np_calidad, np_emp, np_cos, np_pre, p_kg, mrg))
                     conn.commit()
                     conn.close()
-                    st.success("¡Nuevo producto creado con éxito bajo tu control!")
+                    st.success("¡Producto creado!")
                     st.rerun()
-                else:
-                    st.error("Por favor complete código y descripción.")
 
 # ---------------------------------------------------------
-# 7. KARDEX DIARIO
+# 7. KARDEX & TRAZABILIDAD DE LOTES (FIFO)
 # ---------------------------------------------------------
 elif menu.startswith("7."):
-    st.title("🔄 Kardex Diario - Control de Entradas y Salidas de Inventario")
+    st.title("🔄 Kardex Diario y Trazabilidad de Lotes (Regla FIFO)")
     conn = sqlite3.connect(DB_NAME)
-    df_kardex = pd.read_sql("SELECT * FROM movimientos_inventario", conn)
+    df_kardex = pd.read_sql("SELECT * FROM movimientos_inventario ORDER BY id DESC", conn)
     conn.close()
 
     if not df_kardex.empty:
         st.dataframe(df_kardex, use_container_width=True)
     else:
-        st.info("No hay movimientos registrados en el kardex.")
+        st.info("No hay movimientos en el kardex.")
 
 # ---------------------------------------------------------
-# 8. GESTIÓN Y EDICIÓN DE CLIENTES
+# 8. CARTERA OFICIAL DE CLIENTES (100% MANUAL, EDITABLE Y SUCURSALES)
 # ---------------------------------------------------------
 elif menu.startswith("8."):
-    st.title("🏢 Directorio, Edición y Gestión de Clientes (Matrices y Sucursales)")
-    st.write("Agrega nuevos clientes, edita sus datos en tiempo real o elimina sucursales.")
+    st.title("🏢 Cartera Oficial de Clientes (Manual, Editable y con Sucursales)")
+    st.write("Tu directorio oficial de clientes. Inicialmente vacío para que cargues 1. a 1. cada empresa matriz y sus respectivas sucursales.")
 
-    tab_cli1, tab_cli2, tab_cli3 = st.tabs(["📋 Directorio Actual", "✏️ Editar Cliente / Sucursal", "➕ Registrar Nuevo Cliente"])
+    tab_c1, tab_c2, tab_c3 = st.tabs(["📋 Directorio Oficial", "✏️ Editar Sucursal / Cliente", "➕ Registrar Cliente o Sucursal"])
 
-    with tab_cli1:
-        df_clientes = get_clientes_cache()
-        if not df_clientes.empty:
-            st.dataframe(df_clientes, use_container_width=True)
+    with tab_c1:
+        df_cli = get_clientes_cache()
+        if not df_cli.empty:
+            st.dataframe(df_cli, use_container_width=True)
             
             st.markdown("---")
-            st.subheader("🗑️ Eliminar Sucursal / Cliente")
-            id_eliminar = st.selectbox("Seleccione ID de sucursal a eliminar:", df_clientes["id"].tolist())
-            row_del = df_clientes[df_clientes["id"] == id_eliminar].iloc[0]
-            st.warning(f"Va a eliminar la sucursal **{row_del['sucursal']}** de **{row_del['matriz']}**.")
-            if st.button("🗑️ Confirmar Eliminación"):
+            id_cli_del = st.selectbox("Seleccione ID de registro a eliminar:", df_cli["id"].tolist())
+            if st.button("🗑️ Eliminar Sucursal"):
                 conn = sqlite3.connect(DB_NAME)
                 cursor = conn.cursor()
-                cursor.execute("DELETE FROM clientes WHERE id = ?", (int(id_eliminar),))
+                cursor.execute("DELETE FROM clientes WHERE id = ?", (int(id_cli_del),))
                 conn.commit()
                 conn.close()
-                st.success("¡Sucursal eliminada exitosamente!")
+                st.success("¡Sucursal eliminada de la cartera!")
                 st.rerun()
         else:
-            st.info("No hay clientes registrados en el directorio.")
+            st.info("Tu cartera de clientes está vacía. Añade tu primer cliente en la pestaña 'Registrar Cliente o Sucursal'.")
 
-    with tab_cli2:
+    with tab_c2:
         df_cli_ed = get_clientes_cache()
         if not df_cli_ed.empty:
-            st.subheader("✏️ Modificar Datos de Sucursal Existente")
-            id_ed = st.selectbox("Seleccione ID para Editar:", df_cli_ed["id"].tolist(), key="ed_cli_id")
-            row_edit = df_cli_ed[df_cli_ed["id"] == id_ed].iloc[0]
+            id_edc = st.selectbox("Seleccione ID de Cliente para Editar:", df_cli_ed["id"].tolist(), key="ed_cli_c")
+            row_ec = df_cli_ed[df_cli_ed["id"] == id_edc].iloc[0]
 
-            with st.form("form_editar_cliente"):
-                e_matriz = st.text_input("Empresa Matriz", value=row_edit["matriz"])
-                e_suc = st.text_input("Sucursal", value=row_edit["sucursal"])
-                e_seg = st.text_input("Segmento", value=row_edit["segmento"])
-                
-                t_actual = row_edit["tarifa"]
-                opciones_tarifas = ["Tarifa A (Comprador regular)", "Tarifa B (Comprador medio)", "Tarifa C (Comprador esporádico)"]
-                idx_t = opciones_tarifas.index(t_actual) if t_actual in opciones_tarifas else 0
-                e_tarifa = st.selectbox("Clasificación / Tarifa", opciones_tarifas, index=idx_t)
-                
-                d_actual = row_edit["dupla"]
-                opciones_duplas = ["Ladimir (Occidente)", "Tufic (Capital)", "Wilmer (Oriente)"]
-                idx_d = opciones_duplas.index(d_actual) if d_actual in opciones_duplas else 0
-                e_dupla = st.selectbox("Dupla Comercial Oficial", opciones_duplas, index=idx_d)
-                
-                e_tel = st.text_input("Teléfono", value=row_edit["telefono"])
-                e_cont = st.text_input("Contacto", value=row_edit["contacto"])
-                e_dias = st.number_input("Días de Crédito", min_value=1, value=int(row_edit["limite_credito_dias"]))
-                e_monto = st.number_input("Límite de Crédito ($)", min_value=0.0, value=float(row_edit["limite_credito_dolares"]))
+            with st.form("form_edit_cliente_oficial"):
+                eo_matriz = st.text_input("Empresa Matriz", value=row_ec["matriz"])
+                eo_suc = st.text_input("Sucursal", value=row_ec["sucursal"])
+                eo_seg = st.selectbox("Segmento", ["Supermercados", "Mayorista", "Minimarket", "HORECA", "Comercial"], index=0)
+                eo_tarifa = st.selectbox("Tarifa", ["Tarifa A (Comprador regular)", "Tarifa B (Comprador medio)", "Tarifa C (Comprador esporádico)"])
+                eo_dupla = st.selectbox("Dupla Comercial", ["Ladimir (Occidente)", "Tufic (Capital)", "Wilmer (Oriente)"])
+                eo_tel = st.text_input("Teléfono", value=row_ec["telefono"])
+                eo_cont = st.text_input("Contacto", value=row_ec["contacto"])
+                eo_dias = st.number_input("Días de Crédito", min_value=1, value=int(row_ec["limite_credito_dias"]))
+                eo_monto = st.number_input("Límite de Crédito ($)", min_value=0.0, value=float(row_ec["limite_credito_dolares"]))
 
-                if st.form_submit_button("💾 Guardar Cambios del Cliente"):
+                if st.form_submit_button("💾 Guardar Cambios"):
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
                     cursor.execute("""
                         UPDATE clientes 
                         SET matriz = ?, sucursal = ?, segmento = ?, tarifa = ?, dupla = ?, telefono = ?, contacto = ?, limite_credito_dias = ?, limite_credito_dolares = ?
                         WHERE id = ?
-                    """, (e_matriz.upper(), e_suc.upper(), e_seg, e_tarifa, e_dupla, e_tel, e_cont, int(e_dias), e_monto, int(id_ed)))
+                    """, (eo_matriz.upper(), eo_suc.upper(), eo_seg, eo_tarifa, eo_dupla, eo_tel, eo_cont, int(eo_dias), eo_monto, int(id_edc)))
                     conn.commit()
                     conn.close()
-                    st.success("¡Datos del cliente actualizados con éxito!")
+                    st.success("¡Cliente actualizado!")
                     st.rerun()
 
-    with tab_cli3:
-        with st.form("form_nueva_sucursal_completa"):
-            st.subheader("Registrar Nuevo Cliente / Sucursal")
-            c_s1, c_s2 = st.columns(2)
-            with c_s1:
-                matriz_n = st.text_input("Empresa Matriz (Ej. CENTRAL MADERENSE)")
-                sucursal_n = st.text_input("Nombre de la Sucursal (Ej. Sucursal Este)")
-                segmento_n = st.selectbox("Segmento", ["Supermercados", "Mayorista", "Minimarket", "HORECA", "Comercial"])
-                tarifa_n = st.selectbox("Clasificación / Tarifa", ["Tarifa A (Comprador regular)", "Tarifa B (Comprador medio)", "Tarifa C (Comprador esporádico)"])
-            with c_s2:
-                dupla_n = st.selectbox("Dupla Comercial Oficial", ["Ladimir (Occidente)", "Tufic (Capital)", "Wilmer (Oriente)"])
-                telefono_n = st.text_input("Teléfono de Contacto", value="+58 412-")
-                contacto_n = st.text_input("Nombre del Comprador / Encargado")
-                cred_dias = st.number_input("Días de Crédito", min_value=1, value=15)
-                cred_monto = st.number_input("Límite de Crédito ($)", min_value=0.0, value=10000.0)
+    with tab_c3:
+        with st.form("form_nuevo_cliente_manual"):
+            st.subheader("Añadir Nueva Empresa Matriz o Sucursal")
+            nc_mat = st.text_input("Empresa Matriz (Ej. CENTRAL MADERENSE)")
+            nc_suc = st.text_input("Nombre de la Sucursal (Ej. Sucursal Este / Principal)")
+            nc_seg = st.selectbox("Segmento", ["Supermercados", "Mayorista", "Minimarket", "HORECA", "Comercial"])
+            nc_tarifa = st.selectbox("Tarifa Oficial", ["Tarifa A (Comprador regular)", "Tarifa B (Comprador medio)", "Tarifa C (Comprador esporádico)"])
+            nc_dupla = st.selectbox("Dupla Asignada", ["Ladimir (Occidente)", "Tufic (Capital)", "Wilmer (Oriente)"])
+            nc_tel = st.text_input("Teléfono", value="+58 412-")
+            nc_cont = st.text_input("Persona de Contacto / Comprador")
+            nc_dias = st.number_input("Días de Crédito", min_value=1, value=15)
+            nc_monto = st.number_input("Límite de Crédito ($)", min_value=0.0, value=15000.0)
 
-            if st.form_submit_button("💾 Guardar Nuevo Cliente"):
-                if matriz_n and sucursal_n:
+            if st.form_submit_button("💾 Guardar en Cartera de Clientes"):
+                if nc_mat and nc_suc:
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
                     cursor.execute("""
                         INSERT INTO clientes (matriz, sucursal, segmento, tarifa, dupla, telefono, contacto, limite_credito_dias, limite_credito_dolares, ultimo_pedido)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (matriz_n.upper(), sucursal_n.upper(), segmento_n, tarifa_n, dupla_n, telefono_n, contacto_n, int(cred_dias), cred_monto, str(date.today())))
+                    """, (nc_mat.upper(), nc_suc.upper(), nc_seg, nc_tarifa, nc_dupla, nc_tel, nc_cont, int(nc_dias), nc_monto, str(date.today())))
                     conn.commit()
                     conn.close()
-                    st.success("¡Cliente y sucursal agregados con éxito!")
+                    
+                    registrar_auditoria(st.session_state.usuario, st.session_state.rol, "NUEVO CLIENTE", f"Se registró a {nc_mat} - {nc_suc}")
+                    st.success("¡Cliente y sucursal registrados con éxito!")
                     st.rerun()
                 else:
-                    st.error("Por favor complete los campos obligatorios de Matriz y Sucursal.")
+                    st.error("Por favor complete Matriz y Sucursal.")
 
 # ---------------------------------------------------------
 # 9. HISTORIAL DE COMPRAS DE CLIENTES
 # ---------------------------------------------------------
 elif menu.startswith("9."):
-    st.title("🛍️ Historial de Compras y Trazabilidad por Cliente")
+    st.title("🛍️ Historial de Compras de Clientes")
     df_cli_h = get_clientes_cache()
-    lista_mat_hist = df_cli_h["matriz"].unique().tolist() if not df_cli_h.empty else ["BULLKING"]
+    if not df_cli_h.empty:
+        lista_mat_hist = df_cli_h["matriz"].unique().tolist()
+        cliente_sel_hist = st.selectbox("Seleccionar Empresa Matriz:", lista_mat_hist)
 
-    cliente_sel_hist = st.selectbox("Seleccione Empresa Matriz:", lista_mat_hist)
+        conn = sqlite3.connect(DB_NAME)
+        df_ped_hist = pd.read_sql("SELECT * FROM pedidos WHERE cliente = ?", conn, params=(cliente_sel_hist,))
+        conn.close()
 
-    conn = sqlite3.connect(DB_NAME)
-    df_ped_hist = pd.read_sql("SELECT * FROM pedidos WHERE cliente = ?", conn, params=(cliente_sel_hist,))
-    conn.close()
-
-    if not df_ped_hist.empty:
-        st.dataframe(df_ped_hist[["nro_pedido", "sucursal", "fecha_pedido", "monto_total", "atendido_por", "estatus_despacho"]], use_container_width=True)
+        if not df_ped_hist.empty:
+            st.dataframe(df_ped_hist[["nro_pedido", "sucursal", "fecha_pedido", "monto_total", "atendido_por", "estatus_despacho"]], use_container_width=True)
+        else:
+            st.info(f"El cliente {cliente_sel_hist} no registra compras previas.")
     else:
-        st.info(f"El cliente {cliente_sel_hist} no registra compras previas.")
+        st.info("No hay clientes en la cartera.")
 
 # ---------------------------------------------------------
-# 10. MÉTRICAS DE PEDIDOS
+# 10. MÉTRICAS Y REPORTES
 # ---------------------------------------------------------
 elif menu.startswith("10."):
-    st.title("📈 Métricas y Registro de Pedidos")
+    st.title("📈 Métricas y Reportes Comerciales")
     conn = sqlite3.connect(DB_NAME)
     df_p = pd.read_sql("SELECT * FROM pedidos", conn)
     conn.close()
-
     if not df_p.empty:
         st.dataframe(df_p, use_container_width=True)
     else:
@@ -1091,74 +978,63 @@ elif menu.startswith("10."):
 # 11. EMBUDO DE VENTAS
 # ---------------------------------------------------------
 elif menu.startswith("11."):
-    st.title("🎯 Embudo de Ventas y Seguimiento Comercial B2B")
+    st.title("🎯 Embudo de Ventas B2B")
     conn = sqlite3.connect(DB_NAME)
     df_funnel = pd.read_sql("SELECT * FROM embudo_ventas", conn)
     conn.close()
-
     if not df_funnel.empty:
         st.dataframe(df_funnel, use_container_width=True)
     else:
         st.info("No hay oportunidades en el embudo.")
 
 # ---------------------------------------------------------
-# 12. DEPARTAMENTO DE COBRANZA & CxC
+# 12. DEPARTAMENTO DE COBRANZA & CRÉDITO
 # ---------------------------------------------------------
 elif menu.startswith("12."):
-    st.title("💰 Departamento de Cobranza - Cuentas por Cobrar y Facturas")
-    st.write("Gestiona las facturas emitidas, revisa saldos pendientes y registra pagos.")
-
+    st.title("💰 Departamento de Cobranza - Cuentas por Cobrar y Alertas")
     conn = sqlite3.connect(DB_NAME)
     df_cob = pd.read_sql("SELECT * FROM cobranza", conn)
     conn.close()
 
     if not df_cob.empty:
-        st.subheader("📋 Estado Actual de Facturas")
         st.dataframe(df_cob, use_container_width=True)
-
+        
         st.markdown("---")
         st.subheader("💵 Registrar Pago de Factura")
-        with st.form("form_registrar_pago"):
-            fac_sel = st.selectbox("Seleccione Nro. de Factura", df_cob["nro_factura"].tolist())
-            row_fac = df_cob[df_cob["nro_factura"] == fac_sel].iloc[0]
-            
-            saldo_pendiente = row_fac["monto_factura"] - row_fac["monto_pagado"]
-            st.info(f"Cliente: **{row_fac['cliente']}** | Monto Total: **${row_fac['monto_factura']:,.2f}** | Pendiente: **${saldo_pendiente:,.2f}**")
-
-            pago_ingresado = st.number_input("Monto a Abonar / Pagar ($)", min_value=0.01, max_value=float(saldo_pendiente) if saldo_pendiente > 0 else 1.0, value=float(saldo_pendiente))
-
-            if st.form_submit_button("💾 Registrar Abono / Pago"):
-                nuevo_pagado = row_fac["monto_pagado"] + pago_ingresado
-                nuevo_estatus = "Pagado" if nuevo_pagado >= row_fac["monto_factura"] else "Parcial"
-
-                conn = sqlite3.connect(DB_NAME)
-                cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE cobranza 
-                    SET monto_pagado = ?, estatus_pago = ?
-                    WHERE nro_factura = ?
-                """, (nuevo_pagado, nuevo_estatus, fac_sel))
-                conn.commit()
-                conn.close()
-
-                st.success(f"¡Pago de ${pago_ingresado:,.2f} registrado para la factura {fac_sel}!")
-                st.rerun()
+        with st.form("form_pago_cxc"):
+            fac_sel = st.selectbox("Factura Pendiente", df_cob[df_cob["estatus_pago"] != "Pagado"]["nro_factura"].tolist() if not df_cob[df_cob["estatus_pago"] != "Pagado"].empty else [])
+            if fac_sel:
+                row_f = df_cob[df_cob["nro_factura"] == fac_sel].iloc[0]
+                pendiente = row_f["monto_factura"] - row_f["monto_pagado"]
+                st.info(f"Pendiente: **${pendiente:,.2f} USD**")
+                pago_val = st.number_input("Monto a Abonar ($)", min_value=0.01, max_value=float(pendiente), value=float(pendiente))
+                
+                if st.form_submit_button("Registrar Pago"):
+                    nuevo_pagado = row_f["monto_pagado"] + pago_val
+                    nuevo_est = "Pagado" if nuevo_pagado >= row_f["monto_factura"] else "Parcial"
+                    
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE cobranza SET monto_pagado = ?, estatus_pago = ? WHERE nro_factura = ?", (nuevo_pagado, nuevo_est, fac_sel))
+                    conn.commit()
+                    conn.close()
+                    st.success("¡Pago registrado!")
+                    st.rerun()
     else:
         st.info("No hay registros de cobranza.")
 
 # ---------------------------------------------------------
-# 13. LOGÍSTICA, DESPACHO & RUTAS
+# 13. LOGÍSTICA Y DESPACHOS
 # ---------------------------------------------------------
 elif menu.startswith("13."):
     st.title("🚚 Logística y Estatus de Despachos")
     conn = sqlite3.connect(DB_NAME)
     df_peds = pd.read_sql("SELECT * FROM pedidos", conn)
     conn.close()
-
     if not df_peds.empty:
         st.dataframe(df_peds, use_container_width=True)
     else:
-        st.info("No hay pedidos para despachar.")
+        st.info("No hay pedidos.")
 
 # ---------------------------------------------------------
 # 14. MATRIZ DINÁMICA DE PRECIOS
@@ -1166,112 +1042,116 @@ elif menu.startswith("13."):
 elif menu.startswith("14."):
     st.title("💲 Matriz de Precios - Conversión de Caja a Kilogramo")
     df_m = get_catalogo_cache()
-
     if not df_m.empty:
         df_m["precio_kg"] = df_m.apply(lambda r: round(r["precio_caja"] / r["empaque_kg"], 2) if r["empaque_kg"] > 0 else 0.0, axis=1)
-        st.dataframe(df_m[["codigo", "descripcion", "calibre", "clasificacion_calidad", "empaque_kg", "costo_caja", "precio_caja", "precio_kg", "margen_pct"]], use_container_width=True)
+        st.dataframe(df_m[["codigo", "descripcion", "maneja_calibre", "clasificacion_calidad", "empaque_kg", "costo_caja", "precio_caja", "precio_kg", "margen_pct"]], use_container_width=True)
 
 # ---------------------------------------------------------
 # 15. CONTROL DE MERMAS & PÉRDIDAS
 # ---------------------------------------------------------
 elif menu.startswith("15."):
-    st.title("🗑️ Control de Mermas y Pérdidas Financieras")
-    st.write("Registra pérdidas de fruta. Al guardar, **el sistema restará automáticamente las cajas de las cámaras de frío**.")
-
-    tab_m1, tab_m2 = st.tabs(["📋 Historial de Mermas", "➕ Registrar Nueva Merma (Resta Stock)"])
+    st.title("🗑️ Control de Mermas y Pérdidas (Resta Stock)")
+    tab_m1, tab_m2 = st.tabs(["📋 Historial de Mermas", "➕ Registrar Nueva Merma"])
 
     with tab_m1:
         conn = sqlite3.connect(DB_NAME)
-        df_mermas_hist = pd.read_sql("SELECT * FROM mermas", conn)
+        df_mer = pd.read_sql("SELECT * FROM mermas", conn)
         conn.close()
-
-        if not df_mermas_hist.empty:
-            st.dataframe(df_mermas_hist, use_container_width=True)
+        if not df_mer.empty:
+            st.dataframe(df_mer, use_container_width=True)
         else:
-            st.info("No hay mermas registradas.")
+            st.info("No hay mermas.")
 
     with tab_m2:
-        df_inv_merma = get_inventario_cache()
-        df_inv_con_stock = df_inv_merma[df_inv_merma["stock_cajas"] > 0] if not df_inv_merma.empty else pd.DataFrame()
+        df_inv_m = get_inventario_cache()
+        df_inv_stk = df_inv_m[df_inv_m["stock_cajas"] > 0] if not df_inv_m.empty else pd.DataFrame()
+        if not df_inv_stk.empty:
+            with st.form("form_merma"):
+                op_lotes = [f"ID: {r['id']} | Lote: {r['lote']} | {r['producto']} ({r['calibre']}) - Stock: {r['stock_cajas']}" for _, r in df_inv_stk.iterrows()]
+                sel_lote_m = st.selectbox("Seleccionar Lote", op_lotes)
+                id_inv_m = int(sel_lote_m.split("|")[0].replace("ID:", "").strip())
+                row_m = df_inv_stk[df_inv_stk["id"] == id_inv_m].iloc[0]
 
-        if not df_inv_con_stock.empty:
-            with st.form("form_registrar_merma_stock"):
-                st.subheader("Seleccionar Lote y Calibre a Dar de Baja por Merma")
-                
-                opciones_lotes = []
-                for _, r in df_inv_con_stock.iterrows():
-                    opciones_lotes.append(f"ID: {r['id']} | Lote: {r['lote']} | {r['producto']} (Calibre: {r['calibre']}) - Stock: {r['stock_cajas']} cajas")
+                cajas_m = st.number_input("Cajas a Dar de Baja", min_value=1.0, max_value=float(row_m["stock_cajas"]), value=2.0)
+                motivo_m = st.text_input("Motivo de la Merma")
 
-                lote_sel_str = st.selectbox("Lote y Producto en Cámara", opciones_lotes)
-                
-                id_inv_sel = int(lote_sel_str.split("|")[0].replace("ID:", "").strip())
-                row_lote_sel = df_inv_con_stock[df_inv_con_stock["id"] == id_inv_sel].iloc[0]
-
-                st.info(f"Costo Unitario en Sistema: **${row_lote_sel['costo_unitario_caja']:,.2f} por caja** | Stock actual: **{row_lote_sel['stock_cajas']} cajas**")
-
-                cajas_perdidas = st.number_input("Cantidad de Cajas a Dar de Baja (Merma)", min_value=1.0, max_value=float(row_lote_sel["stock_cajas"]), value=5.0)
-                motivo_merma = st.text_input("Motivo de la Merma (Ej. Fruta madura, golpeada, daño por transporte)")
-                fecha_m = st.date_input("Fecha de Registro", value=date.today())
-
-                if st.form_submit_button("🗑️ CONFIRMAR MERMA Y RESTAR DEL INVENTARIO"):
-                    try:
-                        conn = sqlite3.connect(DB_NAME)
-                        cursor = conn.cursor()
-                        cursor.execute("BEGIN TRANSACTION;")
-
-                        perdida_monetaria = cajas_perdidas * row_lote_sel["costo_unitario_caja"]
-
-                        cursor.execute("""
-                            INSERT INTO mermas (lote, producto, calibre, cantidad_perdida, costo_unitario, perdida_monetaria, motivo, fecha_merma)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        """, (row_lote_sel["lote"], row_lote_sel["producto"], row_lote_sel["calibre"], cajas_perdidas, row_lote_sel["costo_unitario_caja"], perdida_monetaria, motivo_merma, str(fecha_m)))
-
-                        nuevo_stock_inv = max(0.0, row_lote_sel["stock_cajas"] - cajas_perdidas)
-                        cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stock_inv, id_inv_sel))
-
-                        cursor.execute("""
-                            INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
-                            VALUES (?, ?, ?, 'SALIDA', ?, ?, ?, ?)
-                        """, (row_lote_sel["lote"], row_lote_sel["producto"], row_lote_sel["calibre"], cajas_perdidas, f"Merma: {motivo_merma}", str(fecha_m), st.session_state.rol))
-
-                        conn.commit()
-                        conn.close()
-
-                        st.success(f"¡Merma registrada! Se descontaron {cajas_perdidas} cajas de {row_lote_sel['producto']} (Calibre {row_lote_sel['calibre']}) del inventario en frío.")
-                        st.rerun()
-
-                    except Exception as e:
-                        if 'conn' in locals():
-                            conn.rollback()
-                            conn.close()
-                        st.error(f"Error al procesar la merma: {e}")
-        else:
-            st.warning("No hay existencias en inventario para registrar mermas.")
+                if st.form_submit_button("Confirmar Merma"):
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    cursor.execute("BEGIN TRANSACTION;")
+                    
+                    perdida = cajas_m * row_m["costo_unitario_caja"]
+                    cursor.execute("INSERT INTO mermas (lote, producto, calibre, cantidad_perdida, costo_unitario, perdida_monetaria, motivo, fecha_merma) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                                   (row_m["lote"], row_m["producto"], row_m["calibre"], cajas_m, row_m["costo_unitario_caja"], perdida, motivo_m, str(date.today())))
+                    
+                    nuevo_stk = max(0.0, row_m["stock_cajas"] - cajas_m)
+                    cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stk, id_inv_m))
+                    
+                    cursor.execute("INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable) VALUES (?, ?, ?, 'SALIDA MERMA', ?, ?, ?, ?)",
+                                   (row_m["lote"], row_m["producto"], row_m["calibre"], cajas_m, f"Merma: {motivo_m}", str(date.today()), st.session_state.rol))
+                    
+                    conn.commit()
+                    conn.close()
+                    st.success("¡Merma registrada y stock descontado!")
+                    st.rerun()
 
 # ---------------------------------------------------------
-# 16. REGISTRO DE DEVOLUCIONES Y MERMAS
+# 16. MÓDULO DE DEVOLUCIONES (MERMA O REINGRESO)
 # ---------------------------------------------------------
 elif menu.startswith("16."):
-    st.title("↩️ Módulo de Devoluciones de Clientes Vinculadas a Mermas")
-    conn = sqlite3.connect(DB_NAME)
-    df_dev_hist = pd.read_sql("SELECT * FROM devoluciones", conn)
-    conn.close()
+    st.title("↩️ Módulo de Devoluciones de Clientes (Destino Merma o Reingreso)")
+    st.write("Registra devoluciones indicando si el producto se descarta como pérdida (merma) o si regresa a las cámaras de frío.")
 
-    if not df_dev_hist.empty:
-        st.dataframe(df_dev_hist, use_container_width=True)
-    else:
-        st.info("No hay devoluciones registradas.")
+    tab_d1, tab_d2 = st.tabs(["📋 Historial de Devoluciones", "➕ Registrar Nueva Devolución"])
+
+    with tab_d1:
+        conn = sqlite3.connect(DB_NAME)
+        df_dev = pd.read_sql("SELECT * FROM devoluciones", conn)
+        conn.close()
+        if not df_dev.empty:
+            st.dataframe(df_dev, use_container_width=True)
+        else:
+            st.info("No hay devoluciones registradas.")
+
+    with tab_d2:
+        df_cli_d = get_clientes_cache()
+        if not df_cli_d.empty:
+            with st.form("form_devolucion"):
+                mat_dev = st.selectbox("Cliente Matriz", df_cli_d["matriz"].unique().tolist())
+                prod_dev = st.text_input("Producto Devuelto")
+                cal_dev = st.text_input("Calibre (si aplica)", value="N/A")
+                cant_dev = st.number_input("Cantidad de Cajas Devueltas", min_value=1.0, value=5.0)
+                motivo_dev = st.text_input("Motivo de la Devolución")
+                destino_dev = st.selectbox("Destino de la Fruta", ["Enviar a Merma (Pérdida)", "Reingresar a Inventario en Frío (Stock Disponible)"])
+
+                if st.form_submit_button("💾 Procesar Devolución"):
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO devoluciones (nro_pedido, cliente, sucursal, producto, calibre, cantidad_devuelta, motivo_devolucion, destino_accion, fecha_devolucion)
+                        VALUES ('DEV-MANUAL', ?, 'Principal', ?, ?, ?, ?, ?, ?)
+                    """, (mat_dev, prod_dev.upper(), cal_dev.upper(), cant_dev, motivo_dev, destino_dev, str(date.today())))
+
+                    if "Reingresar" in destino_dev:
+                        cursor.execute("""
+                            INSERT INTO inventario (lote, producto, calibre, stock_cajas, costo_unitario_caja, fecha_ingreso)
+                            VALUES ('LOTE-DEV', ?, ?, ?, 45.0, ?)
+                        """, (prod_dev.upper(), cal_dev.upper(), cant_dev, str(date.today())))
+                    
+                    conn.commit()
+                    conn.close()
+                    st.success("¡Devolución procesada con éxito!")
+                    st.rerun()
 
 # ---------------------------------------------------------
 # 17. HISTORIAL COMPLETO DE PEDIDOS
 # ---------------------------------------------------------
 elif menu.startswith("17."):
-    st.title("📋 Historial y Fidelidad Histórica de Pedidos B2B")
+    st.title("📋 Historial Completo de Pedidos B2B")
     conn = sqlite3.connect(DB_NAME)
     df_peds = pd.read_sql("SELECT * FROM pedidos", conn)
     conn.close()
-
     if not df_peds.empty:
         st.dataframe(df_peds, use_container_width=True)
     else:
-        st.info("No hay pedidos registrados todavía.")
+        st.info("No hay pedidos.")
