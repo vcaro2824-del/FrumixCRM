@@ -50,7 +50,6 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    # 1. Cartera de Clientes Oficial
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,7 +66,6 @@ def init_db():
         )
     """)
     
-    # 2. Catálogo Base de Productos
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS matriz_precios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,7 +82,6 @@ def init_db():
         )
     """)
     
-    # 3. Pedidos (Reserva Inmediata de Stock y Reversión Automática)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS pedidos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,7 +101,6 @@ def init_db():
         )
     """)
 
-    # 4. Cobranza y Facturación Independiente
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS cobranza (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -118,7 +114,6 @@ def init_db():
         )
     """)
 
-    # 5. Inventario por Lote, Producto y Calibre Opcional
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS inventario (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -131,7 +126,6 @@ def init_db():
         )
     """)
 
-    # 5.1. Kardex de Movimientos & Auditoría de Stock
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS movimientos_inventario (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -146,7 +140,6 @@ def init_db():
         )
     """)
 
-    # 6. Mermas y Pérdidas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS mermas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -161,7 +154,6 @@ def init_db():
         )
     """)
 
-    # 6.1. Devoluciones de Clientes (Destino Merma o Reingreso)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS devoluciones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -177,7 +169,6 @@ def init_db():
         )
     """)
 
-    # 7. Bitácora de Auditoría de Accesos y Acciones
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS bitacora_auditoria (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -189,7 +180,6 @@ def init_db():
         )
     """)
 
-    # 8. Clientes exclusivos para el módulo de Cotizaciones
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes_cotizaciones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -211,9 +201,6 @@ EMPRESA = {
     "telefono": "+58 412-FRUMIX1",
 }
 
-# ---------------------------------------------------------
-# FUNCIONES DE CONSULTA
-# ---------------------------------------------------------
 def get_catalogo_cache():
     conn = sqlite3.connect(DB_NAME)
     df = pd.read_sql("SELECT * FROM matriz_precios", conn)
@@ -246,9 +233,6 @@ def registrar_auditoria(usuario, rol, accion, detalles):
     except:
         pass
 
-# ---------------------------------------------------------
-# SISTEMA DE AUTENTICACIÓN Y ROLES CON AUDITORÍA
-# ---------------------------------------------------------
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
     st.session_state.usuario = ""
@@ -281,9 +265,6 @@ if not st.session_state.autenticado:
                 st.error("Usuario o contraseña incorrectos.")
     st.stop()
 
-# ---------------------------------------------------------
-# MENÚ LATERAL ERP COMPLETO (MÓDULOS V35)
-# ---------------------------------------------------------
 st.sidebar.markdown(f"### 🍓 {EMPRESA['nombre']}")
 st.sidebar.markdown(f"**Usuario Activo:** {st.session_state.rol}")
 if st.sidebar.button("🚪 Cerrar Sesión"):
@@ -314,9 +295,6 @@ modulos_disponibles = [
 
 menu = st.sidebar.radio("Módulos ERP Enterprise Elite V35:", modulos_disponibles)
 
-# ---------------------------------------------------------
-# 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
-# ---------------------------------------------------------
 if menu.startswith("1."):
     st.title("📊 Dashboard Gerencial, Estado de Resultados y Auditoría")
     st.write("Centro analítico con control de actividad de usuarios y salud financiera.")
@@ -354,9 +332,6 @@ if menu.startswith("1."):
     else:
         st.info("No hay registros en la bitácora de auditoría.")
 
-# ---------------------------------------------------------
-# 2. INVENTARIO FLEXIBLE (STOCK, CALIBRE Y EDICIÓN MANUAL)
-# ---------------------------------------------------------
 elif menu.startswith("2."):
     st.title("📦 Inventario Flexible - Control por Calibre Opcional y Edición Manual")
     st.write("Administra el stock en cámaras.")
@@ -437,7 +412,7 @@ elif menu.startswith("2."):
                         cursor.execute("""
                             INSERT INTO inventario (lote, producto, calibre, stock_cajas, costo_unitario_caja, fecha_ingreso)
                             VALUES (?, ?, ?, ?, ?, ?)
-                        """, (lote_num.upper(), fruta_sel, calibre_clean, cajas_ngreso if 'cajas_ngreso' in locals() else cajas_ingreso, costo_caja, str(fecha_ing)))
+                        """, (lote_num.upper(), fruta_sel, calibre_clean, cajas_ingreso, costo_caja, str(fecha_ing)))
 
                         cursor.execute("""
                             INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
@@ -993,19 +968,18 @@ elif menu.startswith("10."):
         st.download_button("📥 Descargar Reporte en Excel (CSV)", csv_rep, "reporte_ventas.csv", "text/csv")
     else:
         st.info("No hay pedidos registrados.")
-
 # ---------------------------------------------------------
 # 11. EMBUDO DE VENTAS
 # ---------------------------------------------------------
 elif menu.startswith("11."):
     st.title("🎯 Embudo de Ventas B2B")
     conn = sqlite3.connect(DB_NAME)
-    df_funnel = pd.read_sql("SELECT * FROM embudo_ventas", conn)
+    df_funnel = pd.read_sql("SELECT * FROM embudo_ventas", conn) if "embudo_ventas" in [row[0] for row in sqlite3.connect(DB_NAME).execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()] else pd.DataFrame()
     conn.close()
     if not df_funnel.empty:
         st.dataframe(df_funnel, use_container_width=True)
     else:
-        st.info("No hay oportunidades en el embudo.")
+        st.info("No hay oportunidades registradas en el embudo de ventas.")
 
 # ---------------------------------------------------------
 # 12. DEPARTAMENTO DE COBRANZA & CRÉDITO
@@ -1024,7 +998,8 @@ elif menu.startswith("12."):
         st.markdown("---")
         st.subheader("💵 Registrar Pago de Factura")
         with st.form("form_pago_cxc"):
-            fac_sel = st.selectbox("Factura Pendiente", df_cob[df_cob["estatus_pago"] != "Pagado"]["nro_factura"].tolist() if not df_cob[df_cob["estatus_pago"] != "Pagado"].empty else [])
+            fac_pendientes = df_cob[df_cob["estatus_pago"] != "Pagado"]["nro_factura"].tolist() if not df_cob[df_cob["estatus_pago"] != "Pagado"].empty else []
+            fac_sel = st.selectbox("Factura Pendiente", fac_pendientes)
             if fac_sel:
                 row_f = df_cob[df_cob["nro_factura"] == fac_sel].iloc[0]
                 pendiente = row_f["monto_factura"] - row_f["monto_pagado"]
@@ -1040,10 +1015,10 @@ elif menu.startswith("12."):
                     cursor.execute("UPDATE cobranza SET monto_pagado = ?, estatus_pago = ? WHERE nro_factura = ?", (nuevo_pagado, nuevo_est, fac_sel))
                     conn.commit()
                     conn.close()
-                    st.success("¡Pago registrado!")
+                    st.success("¡Pago registrado con éxito!")
                     st.rerun()
     else:
-        st.info("No hay registros de cobranza.")
+        st.info("No hay registros de cobranza activos.")
 
 # ---------------------------------------------------------
 # 13. LOGÍSTICA Y DESPACHOS
@@ -1056,7 +1031,7 @@ elif menu.startswith("13."):
     if not df_peds.empty:
         st.dataframe(df_peds, use_container_width=True)
     else:
-        st.info("No hay pedidos.")
+        st.info("No hay pedidos registrados para logística.")
 
 # ---------------------------------------------------------
 # 14. MATRIZ DINÁMICA DE PRECIOS
@@ -1067,6 +1042,8 @@ elif menu.startswith("14."):
     if not df_m.empty:
         df_m["precio_kg"] = df_m.apply(lambda r: round(r["precio_caja"] / r["empaque_kg"], 2) if r["empaque_kg"] > 0 else 0.0, axis=1)
         st.dataframe(df_m[["codigo", "descripcion", "maneja_calibre", "clasificacion_calidad", "empaque_kg", "costo_caja", "precio_caja", "precio_kg", "margen_pct"]], use_container_width=True)
+    else:
+        st.info("No hay productos en el catálogo para mostrar la matriz.")
 
 # ---------------------------------------------------------
 # 15. CONTROL DE MERMAS & PÉRDIDAS
@@ -1084,7 +1061,7 @@ elif menu.startswith("15."):
             csv_m = df_mer.to_csv(index=False).encode('utf-8')
             st.download_button("📥 Descargar Mermas en Excel (CSV)", csv_m, "mermas_frumix.csv", "text/csv")
         else:
-            st.info("No hay mermas.")
+            st.info("No hay mermas registradas.")
 
     with tab_m2:
         df_inv_m = get_inventario_cache()
@@ -1118,13 +1095,15 @@ elif menu.startswith("15."):
                     conn.close()
                     st.success("¡Merma registrada y stock descontado!")
                     st.rerun()
+        else:
+            st.warning("No hay inventario con stock disponible para generar mermas.")
 
 # ---------------------------------------------------------
 # 16. MÓDULO DE DEVOLUCIONES (MERMA O REINGRESO)
 # ---------------------------------------------------------
 elif menu.startswith("16."):
     st.title("↩️ Módulo de Devoluciones de Clientes (Destino Merma o Reingreso)")
-    st.write("Registra devoluciones indicando si el producto se descarta como pérdida (merma) o si regresa a las cámaras de frío.")
+    st.write("Registra devoluciones indicando si el producto se descarta como pérdida o si regresa a las cámaras de frío.")
 
     tab_d1, tab_d2 = st.tabs(["📋 Historial de Devoluciones", "➕ Registrar Nueva Devolución"])
 
@@ -1168,6 +1147,8 @@ elif menu.startswith("16."):
                     conn.close()
                     st.success("¡Devolución procesada con éxito!")
                     st.rerun()
+        else:
+            st.warning("Debe registrar clientes antes de procesar devoluciones.")
 
 # ---------------------------------------------------------
 # 17. HISTORIAL COMPLETO DE PEDIDOS & ELIMINACIÓN CON REVERSIÓN
@@ -1240,4 +1221,4 @@ elif menu.startswith("17."):
                     conn.close()
                 st.error(f"Error al anular el pedido: {e}")
     else:
-        st.info("No hay pedidos registrados.")
+        st.info("No hay pedidos registrados en el sistema.")
