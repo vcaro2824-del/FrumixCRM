@@ -547,58 +547,205 @@ elif menu.startswith("3."):
                     st.success(f"¡Agregado: {cajas_ped} cajas de {fruta_ped} ({calibre_ped})!")
                     st.rerun()
 
+            if st.session_state.carrito_pedido:# ---------------------------------------------------------
+# 3. GENERADOR DE PEDIDOS Y DOCUMENTOS B2B (FORMATO FRUMIX)
+# ---------------------------------------------------------
+elif menu.startswith("3."):
+    st.title("🛒 Generador de Pedidos y Presupuestos B2B (Estilo Frumix)")
+    st.write("Al levantar un pedido, la mercancía se descuenta de inmediato de las cámaras de frío y genera un documento con la estructura oficial.")
+
+    df_cli_db = get_clientes_cache()
+    df_inv_db = get_inventario_cache()
+
+    if df_cli_db.empty:
+        st.warning("⚠️ Tu cartera de clientes está vacía. Debes registrar clientes en el **Módulo 8** antes de levantar pedidos.")
+    else:
+        lista_matrices = df_cli_db["matriz"].unique().tolist()
+
+        c_v1, c_v2 = st.columns(2)
+        with c_v1:
+            cli_sel = st.selectbox("Empresa Matriz del Cliente", lista_matrices)
+            sucursales_disponibles = df_cli_db[df_cli_db["matriz"] == cli_sel]["sucursal"].tolist()
+            suc_sel = st.selectbox("Sucursal Específica de Destino", sucursales_disponibles)
+        with c_v2:
+            cli_row_sel = df_cli_db[(df_cli_db["matriz"] == cli_sel) & (df_cli_db["sucursal"] == suc_sel)].iloc[0]
+            asesor_asignado = cli_row_sel["dupla"]
+            limite_cred_cli = cli_row_sel["limite_credito_dolares"]
+            dias_credito_cli = cli_row_sel["limite_credito_dias"]
+            st.info(f"👤 **Comercial / Asesor:** {asesor_asignado} | Crédito: {dias_credito_cli} días (${limite_cred_cli:,.2f})")
+
+        st.markdown("---")
+        st.subheader("📦 Agregar Productos al Carrito de Pedido (Prioridad FIFO)")
+
+        df_inv_disponible = df_inv_db[df_inv_db["stock_cajas"] > 0] if not df_inv_db.empty else pd.DataFrame()
+
+        if not df_inv_disponible.empty:
+            frutas_disponibles = df_inv_disponible["producto"].unique().tolist()
+            
+            if "carrito_pedido" not in st.session_state:
+                st.session_state.carrito_pedido = []
+
+            with st.form("form_agregar_item_pedido"):
+                c_p1, c_p2, c_p3, c_p4 = st.columns(4)
+                with c_p1:
+                    fruta_ped = st.selectbox("1. Seleccionar Fruta", frutas_disponibles)
+                
+                calibres_disp_fruta = df_inv_disponible[df_inv_disponible["producto"] == fruta_ped]["calibre"].unique().tolist()
+                
+                with c_p2:
+                    calibre_ped = st.selectbox("2. Seleccionar Calibre Disponible", calibres_disp_fruta)
+                    
+                df_lotes_fifo = df_inv_disponible[(df_inv_disponible["producto"] == fruta_ped) & (df_inv_disponible["calibre"] == calibre_ped)].sort_values(by="fecha_ingreso", ascending=True)
+                row_inv_item = df_lotes_fifo.iloc[0]
+                
+                stock_disponible = row_inv_item["stock_cajas"]
+                costo_item = row_inv_item["costo_unitario_caja"]
+                lote_sugerido = row_inv_item["lote"]
+
+                with c_p3:
+                    st.caption(f"Lote FIFO: {lote_sugerido} | Stock: **{stock_disponible} cajas**")
+                    cajas_ped = st.number_input("3. Cantidad de Cajas", min_value=1.0, max_value=float(stock_disponible), value=1.0)
+                with c_p4:
+                    precio_caja_ped = st.number_input("4. Precio por Caja ($)", min_value=0.0, value=float(costo_item * 1.3))
+
+                if st.form_submit_button("➕ Agregar al Carrito"):
+                    subtotal = cajas_ped * precio_caja_ped
+                    st.session_state.carrito_pedido.append({
+                        "inventario_id": int(row_inv_item["id"]),
+                        "lote": lote_sugerido,
+                        "producto": fruta_ped,
+                        "calibre": calibre_ped,
+                        "cajas": cajas_ped,
+                        "costo_unitario": costo_item,
+                        "precio_caja": precio_caja_ped,
+                        "subtotal": subtotal
+                    })
+                    st.success(f"¡Agregado: {cajas_ped} cajas de {fruta_ped} ({calibre_ped})!")
+                    st.rerun()
+
             if st.session_state.carrito_pedido:
-                st.markdown("### 🛒 Detalle del Pedido Actual")
+                st.markdown("### 🛒 Detalle del Presupuesto / Pedido Actual")
                 df_cart = pd.DataFrame(st.session_state.carrito_pedido)
                 st.dataframe(df_cart[["producto", "calibre", "lote", "cajas", "precio_caja", "subtotal"]], use_container_width=True)
 
                 monto_total_ped = df_cart["subtotal"].sum()
-                st.markdown(f"### **Monto Total del Pedido:** `${monto_total_ped:,.2f} USD`")
+                st.markdown(f"### **Monto Total:** `${monto_total_ped:,.2f} USD`")
 
-                if st.button("💾 CONFIRMAR PEDIDO Y RESERVAR STOCK EN CÁMARAS"):
-                    try:
-                        conn = sqlite3.connect(DB_NAME)
-                        cursor = conn.cursor()
-                        cursor.execute("BEGIN TRANSACTION;")
+                col_b1, col_b2 = st.columns(2)
+                with col_b1:
+                    if st.button("💾 CONFIRMAR PEDIDO Y RESERVAR STOCK EN CÁMARAS"):
+                        try:
+                            conn = sqlite3.connect(DB_NAME)
+                            cursor = conn.cursor()
+                            cursor.execute("BEGIN TRANSACTION;")
 
-                        nro_p = f"PED-{get_now_vz().strftime('%Y%m%d%H%M')}"
-                        costo_total_ped = sum(item["cajas"] * item["costo_unitario"] for item in st.session_state.carrito_pedido)
-                        ganancia_ped = monto_total_ped - costo_total_ped
-
-                        cursor.execute("""
-                            INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
-                            VALUES (?, ?, ?, ?, ?, ?, 'Pedido B2B - Reserva de Stock', ?, ?, ?, ?, 'Reservado / En Espera', ?)
-                        """, (nro_p, cli_sel, suc_sel, st.session_state.rol, asesor_asignado, "Cliente Final", str(get_today_vz()), monto_total_ped, costo_total_ped, ganancia_ped, json.dumps(st.session_state.carrito_pedido)))
-
-                        cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ? AND sucursal = ?", (str(get_today_vz()), cli_sel, suc_sel))
-
-                        for item in st.session_state.carrito_pedido:
-                            cursor.execute("SELECT stock_cajas FROM inventario WHERE id = ?", (item["inventario_id"],))
-                            stk_act = cursor.fetchone()[0]
-                            nuevo_stk = max(0.0, stk_act - item["cajas"])
-                            
-                            cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stk, item["inventario_id"]))
+                            nro_p = f"S{int(datetime.now(venezuela_tz).timestamp()) % 100000}"
+                            costo_total_ped = sum(item["cajas"] * item["costo_unitario"] for item in st.session_state.carrito_pedido)
+                            ganancia_ped = monto_total_ped - costo_total_ped
 
                             cursor.execute("""
-                                INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
-                                VALUES (?, ?, ?, 'RESERVA SALIDA', ?, ?, ?, ?)
-                            """, (item["lote"], item["producto"], item["calibre"], item["cajas"], f"Reserva Pedido {nro_p}", str(get_today_vz()), st.session_state.rol))
+                                INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
+                                VALUES (?, ?, ?, ?, ?, ?, 'Presupuesto B2B - Frumix', ?, ?, ?, ?, 'Reservado / En Espera', ?)
+                            """, (nro_p, cli_sel, suc_sel, st.session_state.rol, asesor_asignado, "Cliente Final", str(get_today_vz()), monto_total_ped, costo_total_ped, ganancia_ped, json.dumps(st.session_state.carrito_pedido)))
 
-                        conn.commit()
-                        conn.close()
+                            cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ? AND sucursal = ?", (str(get_today_vz()), cli_sel, suc_sel))
 
-                        registrar_auditoria(st.session_state.usuario, st.session_state.rol, "REGISTRO PEDIDO", f"Pedido {nro_p} creado para {cli_sel} - {suc_sel} por ${monto_total_ped:,.2f}")
-                        st.session_state.carrito_pedido = []
-                        st.success(f"¡Pedido {nro_p} procesado con éxito! Las existencias fueron descontadas de cámaras de frío.")
-                        st.rerun()
+                            for item in st.session_state.carrito_pedido:
+                                cursor.execute("SELECT stock_cajas FROM inventario WHERE id = ?", (item["inventario_id"],))
+                                stk_act = cursor.fetchone()[0]
+                                nuevo_stk = max(0.0, stk_act - item["cajas"])
+                                
+                                cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stk, item["inventario_id"]))
 
-                    except Exception as e:
-                        if 'conn' in locals():
-                            conn.rollback()
+                                cursor.execute("""
+                                    INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
+                                    VALUES (?, ?, ?, 'RESERVA SALIDA', ?, ?, ?, ?)
+                                """, (item["lote"], item["producto"], item["calibre"], item["cajas"], f"Reserva Pedido #{nro_p}", str(get_today_vz()), st.session_state.rol))
+
+                            conn.commit()
                             conn.close()
-                        st.error(f"Error procesando la transacción: {e}")
+
+                            registrar_auditoria(st.session_state.usuario, st.session_state.rol, "REGISTRO PEDIDO", f"Pedido #{nro_p} creado para {cli_sel} - {suc_sel} por ${monto_total_ped:,.2f}")
+                            st.success(f"¡Pedido #{nro_p} registrado con éxito y stock descontado de cámaras!")
+                            
+                            # Generador HTML estilo Nota de Entrega / Presupuesto Frumix
+                            logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
+                            html_presupuesto = f"""
+                            <html>
+                            <head>
+                                <meta charset="utf-8">
+                                <title>Presupuesto #{nro_p} - Frumix C.A.</title>
+                                <style>
+                                    body {{ font-family: Arial, sans-serif; font-size: 13px; margin: 30px; color: #111; }}
+                                    .header {{ display: flex; justify-content: space-between; border-bottom: 3px solid #6B8E23; padding-bottom: 15px; align-items: center; }}
+                                    .logo {{ max-height: 75px; width: auto; }}
+                                    .info-box {{ margin-top: 20px; display: flex; justify-content: space-between; line-height: 1.5; }}
+                                    h2 {{ color: #222; margin-top: 25px; }}
+                                    table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+                                    th, td {{ border: 1px solid #bbb; padding: 10px 12px; text-align: left; }}
+                                    th {{ background-color: #f2f2f2; font-weight: bold; }}
+                                    .footer-cond {{ margin-top: 30px; font-weight: bold; font-size: 12px; }}
+                                </style>
+                            </head>
+                            <body>
+                                <div class="header">
+                                    <div>
+                                        <img src="{logo_url}" class="logo" alt="Logo Frumix">
+                                        <div style="font-size: 10px; color: #555; margin-top: 4px;">RIF: J-40985632-1 | Caracas, Venezuela</div>
+                                    </div>
+                                    <div style="text-align: right; font-size: 12px;">
+                                        <strong>Documento generado:</strong><br>{get_now_vz().strftime('%Y-%m-%d %H:%M:%S')}
+                                    </div>
+                                </div>
+                                
+                                <div class="info-box">
+                                    <div>
+                                        <strong>CLIENTE:</strong> {cli_sel}<br>
+                                        <strong>SUCURSAL:</strong> {suc_sel}<br>
+                                        <strong>DIRECCIÓN:</strong> Caracas, Venezuela
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <strong>Comercial:</strong> {asesor_asignado}<br>
+                                        <strong>Fecha del presupuesto:</strong> {get_today_vz()}<br>
+                                        <strong>Vencimiento:</strong> {get_today_vz() + timedelta(days=int(dias_credito_cli))}
+                                    </div>
+                                </div>
+
+                                <h2>Presupuesto # S{nro_p}</h2>
+                                <table>
+                                    <tr>
+                                        <th>Descripción</th>
+                                        <th style="text-align: right;">Cantidad</th>
+                                    </tr>
+                            """
+                            for item in st.session_state.carrito_pedido:
+                                html_presupuesto += f"<tr><td>[{item['lote']}] {item['producto']} ({item['calibre']})</td><td style='text-align: right;'>{item['cajas']:.2f} CAJA</td></tr>"
+                            
+                            html_presupuesto += f"""
+                                </table>
+                                <div class="footer-cond">
+                                    <p>Condiciones de pago: {dias_credito_cli} días</p>
+                                    <p>Total General Estimado: ${monto_total_ped:,.2f} USD</p>
+                                </div>
+                            </body>
+                            </html>
+                            """
+                            st.download_button(
+                                label="📥 Descargar Documento Oficial / Presupuesto HTML",
+                                data=html_presupuesto,
+                                file_name=f"Presupuesto_S{nro_p}.html",
+                                mime="text/html"
+                            )
+                            st.session_state.carrito_pedido = []
+
+                        except Exception as e:
+                            if 'conn' in locals():
+                                conn.rollback()
+                                conn.close()
+                            st.error(f"Error procesando la transacción: {e}")
         else:
             st.warning("No hay existencias disponibles en cámaras de frío.")
+
 
 # ---------------------------------------------------------
 # 4. COTIZADOR PRO (CUADRO EDITABLE DE PRECIOS Y FORMATO IMPRIMIBLE)
