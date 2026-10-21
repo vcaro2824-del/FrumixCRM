@@ -11,7 +11,7 @@ import urllib.request
 # CONFIGURACIÓN DE PÁGINA CORPORATIVA
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B Enterprise Elite V29",
+    page_title="Frumix C.A. - ERP B2B Enterprise Elite V30",
     page_icon="🍓",
     layout="wide",
 )
@@ -33,9 +33,9 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V29 ESTABLE
+# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V30 ESTABLE
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_elite_v29.db"
+DB_NAME = "frumix_enterprise_elite_v30.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -275,7 +275,7 @@ if not st.session_state.autenticado:
     st.stop()
 
 # ---------------------------------------------------------
-# MENÚ LATERAL ERP COMPLETO (MÓDULOS V29)
+# MENÚ LATERAL ERP COMPLETO (MÓDULOS V30)
 # ---------------------------------------------------------
 st.sidebar.markdown(f"### 🍓 {EMPRESA['nombre']}")
 st.sidebar.markdown(f"**Usuario Activo:** {st.session_state.rol}")
@@ -289,7 +289,7 @@ modulos_disponibles = [
     "1. 📊 Dashboard Gerencial, P&L & Auditoría",
     "2. 📦 Inventario Flexible (Stock, Calibre y Edición Manual)",
     "3. 🛒 Generador de Pedidos (Reserva Automática de Stock)",
-    "4. 📄 Cotizador Pro (Cartera Exclusiva de Cotizaciones)",
+    "4. 📄 Cotizador Pro (Cuadro Editable & Formato Imprimible)",
     "5. 📋 Registro Manual de Facturación & CxC Independiente",
     "6. 🍓 Catálogo de Productos (Calibre Opcional)",
     "7. 🔄 Kardex & Trazabilidad de Lotes (FIFO)",
@@ -305,7 +305,7 @@ modulos_disponibles = [
     "17. 📋 Historial Completo de Pedidos & Eliminación con Reversión",
 ]
 
-menu = st.sidebar.radio("Módulos ERP Enterprise Elite V29:", modulos_disponibles)
+menu = st.sidebar.radio("Módulos ERP Enterprise Elite V30:", modulos_disponibles)
 
 # ---------------------------------------------------------
 # 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
@@ -342,8 +342,6 @@ if menu.startswith("1."):
     st.subheader("🕵️‍♂️ Bitácora de Auditoría y Control de Accesos")
     if not df_audit.empty:
         st.dataframe(df_audit[["fecha_hora", "usuario", "rol", "accion", "detalles"]], use_container_width=True)
-        
-        # Mejora: Botón de exportación a CSV
         csv_audit = df_audit.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Descargar Auditoría en Excel (CSV)", csv_audit, "auditoria_frumix.csv", "text/csv")
     else:
@@ -363,7 +361,6 @@ elif menu.startswith("2."):
         if not df_inv.empty:
             st.subheader("📊 Tabla de Existencias en Cámaras")
             
-            # Mejora: Alerta visual de stock crítico (< 10 cajas)
             def destacar_critico(val):
                 color = 'red' if val < 10 else 'black'
                 return f'color: {color}; font-weight: bold;'
@@ -596,11 +593,11 @@ elif menu.startswith("3."):
             st.warning("No hay existencias disponibles en cámaras de frío.")
 
 # ---------------------------------------------------------
-# 4. COTIZADOR PRO (CON FORMATO HTML IMPRIMIBLE Y LOGO)
+# 4. COTIZADOR PRO (CUADRO EDITABLE DE PRECIOS Y FORMATO IMPRIMIBLE)
 # ---------------------------------------------------------
 elif menu.startswith("4."):
-    st.title("📄 Cotizador B2B Profesional con Formato Imprimible")
-    st.write("Genera listas de precios oficiales y exporta el documento HTML institucional con logo para clientes.")
+    st.title("📄 Cotizador B2B Profesional con Cuadro Editable")
+    st.write("Modifica el precio por caja directamente en la tabla. El sistema calculará automáticamente el precio por kilo y generará el formato con logo.")
 
     df_mat = get_catalogo_cache()
 
@@ -632,11 +629,12 @@ elif menu.startswith("4."):
     vig_sel = st.date_input("Validez de la cotización:", value=date.today() + pd.Timedelta(days=7))
 
     st.markdown("---")
-    st.subheader("📋 Cuadro de Precios:")
+    st.subheader("📋 Cuadro de Precios Editable:")
+    st.info("💡 Haz doble clic sobre la columna de 'PRECIO CAJA ($)' para editar el precio a cotizar. El precio por kilo se actualizará solo.")
 
     if not df_mat.empty:
-        df_editor_v = df_mat[["codigo", "descripcion", "calibre", "clasificacion_calidad", "empaque_kg", "costo_caja", "precio_caja"]].copy()
-        df_editor_v.columns = ["CÓDIGO", "DESCRIPCIÓN", "CALIBRE", "CALIDAD", "EMPAQUE/KG", "COSTO CAJA ($)", "PRECIO CAJA ($)"]
+        df_editor_v = df_mat[["codigo", "descripcion", "clasificacion_calidad", "empaque_kg", "precio_caja"]].copy()
+        df_editor_v.columns = ["CÓDIGO", "DESCRIPCIÓN", "CALIDAD", "EMPAQUE/KG", "PRECIO CAJA ($)"]
 
         df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra")
 
@@ -690,7 +688,6 @@ elif menu.startswith("4."):
                     <tr>
                         <th>Código</th>
                         <th>Descripción</th>
-                        <th>Calibre</th>
                         <th>Calidad</th>
                         <th>Empaque (Kg)</th>
                         <th>Precio Caja ($)</th>
@@ -698,7 +695,7 @@ elif menu.startswith("4."):
                     </tr>
             """
             for _, r in df_editado_venta.iterrows():
-                html_doc += f"<tr><td>{r['CÓDIGO']}</td><td>{r['DESCRIPCIÓN']}</td><td>{r['CALIBRE']}</td><td>{r['CALIDAD']}</td><td>{r['EMPAQUE/KG']}</td><td>${r['PRECIO CAJA ($)']:.2f}</td><td>${r['PRECIO POR KG ($)']:.2f}</td></tr>"
+                html_doc += f"<tr><td>{r['CÓDIGO']}</td><td>{r['DESCRIPCIÓN']}</td><td>{r['CALIDAD']}</td><td>{r['EMPAQUE/KG']}</td><td>${r['PRECIO CAJA ($)']:.2f}</td><td>${r['PRECIO POR KG ($)']:.2f}</td></tr>"
             html_doc += f"""
                 </table>
                 <br>
