@@ -275,7 +275,7 @@ st.sidebar.markdown("---")
 
 modulos_disponibles = [
     "1. 📊 Dashboard Gerencial, P&L & Auditoría",
-    "2. 📦 Inventario Flexible (Stock, Calibre y Edición Manual)",
+    "2. 📦 Inventario Flexible (Tabla 100% Editable)",
     "3. 🛒 Generador de Pedidos y Presupuestos (Manual y Formato Frumix)",
     "4. 📄 Cotizador Pro (Cuadro Editable & Formato Imprimible)",
     "5. 📋 Registro Manual de Facturación & CxC Independiente",
@@ -336,55 +336,61 @@ if menu.startswith("1."):
         st.info("No hay registros en la bitácora de auditoría.")
 
 # ---------------------------------------------------------
-# 2. INVENTARIO FLEXIBLE (STOCK, CALIBRE Y EDICIÓN MANUAL)
+# 2. INVENTARIO FLEXIBLE (TABLA INTERACTIVA 100% EDITABLE)
 # ---------------------------------------------------------
 elif menu.startswith("2."):
-    st.title("📦 Inventario Flexible - Control por Calibre Opcional y Edición Manual")
-    st.write("Administra el stock en cámaras. Los calibres por debajo de 10 cajas se marcan en alerta crítica.")
+    st.title("📦 Inventario Flexible - Tabla de Existencias 100% Editable")
+    st.write("Modifica cualquier celda directamente en la tabla y guarda los cambios con el botón inferior.")
 
-    tab_inv1, tab_inv2, tab_inv3 = st.tabs(["📋 Existencias & Alertas Críticas", "➕ Añadir Lote de Fruta", "🗑️ Eliminar Lote"])
+    tab_inv1, tab_inv2, tab_inv3 = st.tabs(["📋 Existencias & Edición Directa", "➕ Añadir Lote de Fruta", "🗑️ Eliminar Lote"])
 
     with tab_inv1:
         df_inv = get_inventario_cache()
         if not df_inv.empty:
             st.subheader("📊 Tabla de Existencias en Cámaras")
-            
-            def destacar_critico(val):
-                color = 'red' if val < 10 else 'black'
-                return f'color: {color}; font-weight: bold;'
+            st.info("💡 Haz clic en cualquier celda para editar el lote, producto, calibre, stock o costo directamente.")
 
-            st.dataframe(df_inv.style.map(destacar_critico, subset=['stock_cajas']), use_container_width=True)
-            st.caption("🔴 *Nota:* Los valores en rojo indican stock crítico menor a 10 cajas.")
+            df_editado_inv = st.data_editor(
+                df_inv,
+                use_container_width=True,
+                key="editor_inventario_general",
+                num_rows="dynamic"
+            )
 
-            csv_inv = df_inv.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Descargar Inventario en Excel (CSV)", csv_inv, "inventario_frumix.csv", "text/csv")
+            if st.button("💾 Guardar Todos los Cambios de la Tabla"):
+                try:
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    
+                    for _, row in df_editado_inv.iterrows():
+                        cursor.execute("""
+                            UPDATE inventario 
+                            SET lote = ?, producto = ?, calibre = ?, stock_cajas = ?, costo_unitario_caja = ?, fecha_ingreso = ?
+                            WHERE id = ?
+                        """, (
+                            str(row["lote"]).upper(),
+                            str(row["producto"]).upper(),
+                            str(row["calibre"]).upper(),
+                            float(row["stock_cajas"]),
+                            float(row["costo_unitario_caja"]),
+                            str(row["fecha_ingreso"]),
+                            int(row["id"])
+                        ))
+                    
+                    conn.commit()
+                    conn.close()
+                    
+                    registrar_auditoria(st.session_state.usuario, st.session_state.rol, "EDICIÓN MASIVA INVENTARIO", "Se actualizaron existencias directamente desde la tabla interactiva.")
+                    st.success("¡Los cambios del inventario se han guardado exitosamente!")
+                    st.rerun()
+                except Exception as e:
+                    if 'conn' in locals():
+                        conn.close()
+                    st.error(f"Error al guardar los cambios: {e}")
 
             st.markdown("---")
-            st.subheader("✏️ Edición Directa de Stock (Auditoría Física)")
-            id_edit_stock = st.selectbox("Seleccione ID de Inventario a Modificar:", df_inv["id"].tolist(), key="sel_ed_stk")
-            row_stk_edit = df_inv[df_inv["id"] == id_edit_stock].iloc[0]
-            
-            st.info(f"Producto: **{row_stk_edit['producto']}** | Calibre: **{row_stk_edit['calibre']}** | Lote: **{row_stk_edit['lote']}** | Stock Actual: **{row_stk_edit['stock_cajas']} cajas**")
-
-            nuevo_stock_manual = st.number_input("Nuevo Stock Real (Cajas)", min_value=0.0, value=float(row_stk_edit["stock_cajas"]))
-            motivo_ajuste_stk = st.text_input("Motivo del ajuste manual (Ej. Conteo físico inicial de almacén)")
-
-            if st.button("💾 Actualizar Stock Directo en Sistema"):
-                conn = sqlite3.connect(DB_NAME)
-                cursor = conn.cursor()
-                cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stock_manual, int(id_edit_stock)))
-                
-                cursor.execute("""
-                    INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
-                    VALUES (?, ?, ?, 'AJUSTE MANUAL', ?, ?, ?, ?)
-                """, (row_stk_edit["lote"], row_stk_edit["producto"], row_stk_edit["calibre"], nuevo_stock_manual, f"Ajuste manual: {motivo_ajuste_stk}", str(get_today_vz()), st.session_state.rol))
-                
-                conn.commit()
-                conn.close()
-                
-                registrar_auditoria(st.session_state.usuario, st.session_state.rol, "AJUSTE MANUAL INVENTARIO", f"Lote {row_stk_edit['lote']} ajustado a {nuevo_stock_manual} cajas.")
-                st.success("¡Stock actualizado exitosamente!")
-                st.rerun()
+            csv_inv = df_inv.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Descargar Inventario en Excel (CSV)", csv_inv, "inventario_frumix.csv", "text/csv")
         else:
             st.info("No hay inventario registrado en cámaras.")
 
@@ -453,11 +459,11 @@ elif menu.startswith("2."):
                 st.rerun()
 
 # ---------------------------------------------------------
-# 3. GENERADOR DE PEDIDOS Y PRESUPUESTOS (DATOS MANUALES & FORMATO FRUMIX)
+# 3. GENERADOR DE PEDIDOS Y PRESUPUESTOS (INGRESO MANUAL)
 # ---------------------------------------------------------
 elif menu.startswith("3."):
     st.title("🛒 Generador de Pedidos y Presupuestos (Ingreso Manual - Estilo Frumix)")
-    st.write("Ingresa de forma manual el número de presupuesto/pedido, datos del cliente, comercial y condiciones de pago.")
+    st.write("Ingresa de forma manual el número de presupuesto, datos del cliente, comercial y condiciones de pago.")
 
     df_inv_db = get_inventario_cache()
 
@@ -467,7 +473,7 @@ elif menu.startswith("3."):
         with col_m1:
             nro_presupuesto_manual = st.text_input("Número de Presupuesto / Pedido (Ej. S13385)", value="S13385")
             cliente_manual = st.text_input("Nombre de la Empresa / Cliente (Ej. CENTRAL MADERENSE, C.A.)", value="CENTRAL MADERENSE, C.A.")
-            sucursal_manual = st.text_input("Sucursal / Dirección (Ej. Ctra vieja Petare Santa Lucía KM 5...)", value="Ctra vieja Petare Santa Lucía KM 5 EDIF pb OF centro CM sector Filas, Caracas, Venezuela")
+            sucursal_manual = st.text_input("Sucursal / Dirección", value="Ctra vieja Petare Santa Lucía KM 5 EDIF pb OF centro CM sector Filas, Caracas, Venezuela")
         with col_m2:
             comercial_manual = st.text_input("Comercial / Asesor Asignado (Ej. Yuri Armas)", value="Yuri Armas")
             dias_credito_manual = st.number_input("Condiciones de pago (Días de crédito)", min_value=0, value=21)
@@ -805,7 +811,6 @@ elif menu.startswith("5."):
                 registrar_auditoria(st.session_state.usuario, st.session_state.rol, "REGISTRO FACTURA", f"Factura {nro_factura_m} por ${monto_fac_m:,.2f} para {cliente_fac_m}")
                 st.success(f"¡Factura {nro_factura_m} registrada con éxito en Cuentas por Cobrar!")
                 
-                # HTML Descargable de Factura
                 logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
                 html_factura = f"""
                 <html>
