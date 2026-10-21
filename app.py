@@ -42,7 +42,7 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V35 ESTABLE
+# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V35 VACÍA
 # ---------------------------------------------------------
 DB_NAME = "frumix_enterprise_elite_v35.db"
 
@@ -472,10 +472,10 @@ elif menu.startswith("3."):
         col_m1, col_m2 = st.columns(2)
         with col_m1:
             nro_presupuesto_manual = st.text_input("Número de Presupuesto / Pedido (Ej. S13385)", value="S13385")
-            cliente_manual = st.text_input("Nombre de la Empresa / Cliente (Ej. CENTRAL MADERENSE, C.A.)", value="CENTRAL MADERENSE, C.A.")
-            sucursal_manual = st.text_input("Sucursal / Dirección", value="Ctra vieja Petare Santa Lucía KM 5 EDIF pb OF centro CM sector Filas, Caracas, Venezuela")
+            cliente_manual = st.text_input("Nombre de la Empresa / Cliente", value="")
+            sucursal_manual = st.text_input("Sucursal / Dirección", value="")
         with col_m2:
-            comercial_manual = st.text_input("Comercial / Asesor Asignado (Ej. Yuri Armas)", value="Yuri Armas")
+            comercial_manual = st.text_input("Comercial / Asesor Asignado", value="")
             dias_credito_manual = st.number_input("Condiciones de pago (Días de crédito)", min_value=0, value=21)
             fecha_presupuesto = st.date_input("Fecha del Presupuesto", value=get_today_vz())
 
@@ -604,7 +604,6 @@ elif menu.startswith("3."):
                                 <strong>{cliente_manual}</strong><br>
                                 {sucursal_manual}<br>
                                 Venezuela<br>
-                                NIF: J-00006275-7
                             </div>
                             <div style="text-align: right;">
                                 <strong>Comercial:</strong> {comercial_manual}<br>
@@ -768,7 +767,7 @@ elif menu.startswith("4."):
             </html>
             """
             st.download_button(
-                label="💾 Descargar Cotización en HTML para Imprimir / WhatsApp",
+                label="📥 Descargar Cotización en HTML para Imprimir / WhatsApp",
                 data=html_doc,
                 file_name=f"Cotizacion_Frumix_{get_today_vz()}.html",
                 mime="text/html"
@@ -787,11 +786,11 @@ elif menu.startswith("5."):
         st.subheader("📝 Datos de Facturación (Manuales)")
         c_f1, c_f2 = st.columns(2)
         with c_f1:
-            nro_factura_m = st.text_input("Nro. de Factura Oficial (Ej. FAC-00201)", value="FAC-00201")
-            cliente_fac_m = st.text_input("Empresa / Cliente Matriz", value="CENTRAL MADERENSE, C.A.")
-            sucursal_fac_m = st.text_input("Sucursal / Dirección de Facturación", value="Ctra vieja Petare Santa Lucía KM 5...")
+            nro_factura_m = st.text_input("Nro. de Factura Oficial (Ej. FAC-00201)", value="FAC-")
+            cliente_fac_m = st.text_input("Empresa / Cliente Matriz", value="")
+            sucursal_fac_m = st.text_input("Sucursal / Dirección de Facturación", value="")
         with c_f2:
-            comercial_fac_m = st.text_input("Comercial Asignado", value="Yuri Armas")
+            comercial_fac_m = st.text_input("Comercial Asignado", value="")
             monto_fac_m = st.number_input("Monto Total de la Factura ($)", min_value=1.0, value=1000.0)
             dias_venc_m = st.number_input("Días de Crédito Otorgados", min_value=1, value=21)
             fecha_em_m = st.date_input("Fecha de Emisión", value=get_today_vz())
@@ -845,7 +844,6 @@ elif menu.startswith("5."):
                         <div>
                             <strong>CLIENTE:</strong> {cliente_fac_m}<br>
                             <strong>DIRECCIÓN:</strong> {sucursal_fac_m}<br>
-                            NIF: J-00006275-7
                         </div>
                         <div style="text-align: right;">
                             <strong>Comercial:</strong> {comercial_fac_m}<br>
