@@ -23,7 +23,7 @@ def get_today_vz():
 # CONFIGURACIÓN DE PÁGINA CORPORATIVA
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B Enterprise Elite V33",
+    page_title="Frumix C.A. - ERP B2B Enterprise Elite V35",
     page_icon="🍓",
     layout="wide",
 )
@@ -42,9 +42,9 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V33 PERSISTENTE
+# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V35 ESTABLE
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_elite_v33.db"
+DB_NAME = "frumix_enterprise_elite_v35.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -282,7 +282,7 @@ if not st.session_state.autenticado:
     st.stop()
 
 # ---------------------------------------------------------
-# MENÚ LATERAL ERP COMPLETO (MÓDULOS V33)
+# MENÚ LATERAL ERP COMPLETO (MÓDULOS V35)
 # ---------------------------------------------------------
 st.sidebar.markdown(f"### 🍓 {EMPRESA['nombre']}")
 st.sidebar.markdown(f"**Usuario Activo:** {st.session_state.rol}")
@@ -312,7 +312,7 @@ modulos_disponibles = [
     "17. 📋 Historial Completo de Pedidos & Eliminación con Reversión",
 ]
 
-menu = st.sidebar.radio("Módulos ERP Enterprise Elite V33:", modulos_disponibles)
+menu = st.sidebar.radio("Módulos ERP Enterprise Elite V35:", modulos_disponibles)
 
 # ---------------------------------------------------------
 # 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
@@ -359,7 +359,7 @@ if menu.startswith("1."):
 # ---------------------------------------------------------
 elif menu.startswith("2."):
     st.title("📦 Inventario Flexible - Control por Calibre Opcional y Edición Manual")
-    st.write("Administra el stock en cámaras. Los calibres por debajo de 10 cajas se marcan en alerta crítica.")
+    st.write("Administra el stock en cámaras.")
 
     tab_inv1, tab_inv2, tab_inv3 = st.tabs(["📋 Existencias & Alertas Críticas", "➕ Añadir Lote de Fruta", "🗑️ Eliminar Lote"])
 
@@ -367,13 +367,7 @@ elif menu.startswith("2."):
         df_inv = get_inventario_cache()
         if not df_inv.empty:
             st.subheader("📊 Tabla de Existencias en Cámaras")
-            
-            def destacar_critico(val):
-                color = 'red' if val < 10 else 'black'
-                return f'color: {color}; font-weight: bold;'
-
-            st.dataframe(df_inv.style.applymap(destacar_critico, subset=['stock_cajas']), use_container_width=True)
-            st.caption("🔴 *Nota:* Los valores en rojo indican stock crítico menor a 10 cajas.")
+            st.dataframe(df_inv, use_container_width=True)
 
             csv_inv = df_inv.to_csv(index=False).encode('utf-8')
             st.download_button("📥 Descargar Inventario en Excel (CSV)", csv_inv, "inventario_frumix.csv", "text/csv")
@@ -443,7 +437,7 @@ elif menu.startswith("2."):
                         cursor.execute("""
                             INSERT INTO inventario (lote, producto, calibre, stock_cajas, costo_unitario_caja, fecha_ingreso)
                             VALUES (?, ?, ?, ?, ?, ?)
-                        """, (lote_num.upper(), fruta_sel, calibre_clean, cajas_ingreso, costo_caja, str(fecha_ing)))
+                        """, (lote_num.upper(), fruta_sel, calibre_clean, cajas_ngreso if 'cajas_ngreso' in locals() else cajas_ingreso, costo_caja, str(fecha_ing)))
 
                         cursor.execute("""
                             INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
@@ -470,13 +464,12 @@ elif menu.startswith("2."):
                 conn.close()
                 st.success("¡Lote eliminado del sistema!")
                 st.rerun()
-
 # ---------------------------------------------------------
 # 3. GENERADOR DE PEDIDOS (RESERVA AUTOMÁTICA DE STOCK)
 # ---------------------------------------------------------
 elif menu.startswith("3."):
     st.title("🛒 Generador de Pedidos B2B (Reserva Inmediata de Stock)")
-    st.write("Al levantar un pedido, la mercancía **se descuenta y reserva de inmediato** de las cámaras de frío.")
+    st.write("Al levantar un pedido, la mercancía se descuenta de inmediato de las cámaras.")
 
     df_cli_db = get_clientes_cache()
     df_inv_db = get_inventario_cache()
@@ -588,7 +581,7 @@ elif menu.startswith("3."):
 
                         registrar_auditoria(st.session_state.usuario, st.session_state.rol, "REGISTRO PEDIDO", f"Pedido {nro_p} creado para {cli_sel} - {suc_sel} por ${monto_total_ped:,.2f}")
                         st.session_state.carrito_pedido = []
-                        st.success(f"¡Pedido {nro_p} procesado con éxito! Las existencias fueron descontadas de cámaras de frío.")
+                        st.success(f"¡Pedido {nro_p} procesado con éxito!")
                         st.rerun()
 
                     except Exception as e:
@@ -880,7 +873,7 @@ elif menu.startswith("7."):
 # ---------------------------------------------------------
 elif menu.startswith("8."):
     st.title("🏢 Cartera Oficial de Clientes (Manual, Editable y con Sucursales)")
-    st.write("Tu directorio oficial de clientes. Inicialmente vacío para que cargues 1. a 1. cada empresa matriz y sus respectivas sucursales.")
+    st.write("Tu directorio oficial de clientes.")
 
     tab_c1, tab_c2, tab_c3 = st.tabs(["📋 Directorio Oficial", "✏️ Editar Sucursal / Cliente", "➕ Registrar Cliente o Sucursal"])
 
@@ -903,7 +896,7 @@ elif menu.startswith("8."):
                 st.success("¡Sucursal eliminada de la cartera!")
                 st.rerun()
         else:
-            st.info("Tu cartera de clientes está vacía. Añade tu primer cliente en la pestaña 'Registrar Cliente o Sucursal'.")
+            st.info("Tu cartera de clientes está vacía.")
 
     with tab_c2:
         df_cli_ed = get_clientes_cache()
@@ -1181,7 +1174,7 @@ elif menu.startswith("16."):
 # ---------------------------------------------------------
 elif menu.startswith("17."):
     st.title("📋 Historial Completo de Pedidos & Eliminación con Reversión Automática")
-    st.write("Visualiza los pedidos registrados. Si un pedido es cancelado o eliminado aquí, **el stock regresa automáticamente a las cámaras de frío**.")
+    st.write("Visualiza los pedidos registrados. Si un pedido es cancelado o eliminado aquí, el stock regresa automáticamente a las cámaras.")
 
     conn = sqlite3.connect(DB_NAME)
     df_peds = pd.read_sql("SELECT * FROM pedidos", conn)
@@ -1238,7 +1231,7 @@ elif menu.startswith("17."):
                     conn.close()
 
                     registrar_auditoria(st.session_state.usuario, st.session_state.rol, "ANULACIÓN DE PEDIDO", f"Pedido {nro_ped_del} anulado y stock reingresado a cámaras.")
-                    st.success("¡Pedido anulado con éxito! La mercancía regresó automáticamente al inventario de cámaras.")
+                    st.success("¡Pedido anulado con éxito!")
                     st.rerun()
 
             except Exception as e:
