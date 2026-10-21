@@ -17,7 +17,7 @@ def get_today_vz():
     return datetime.now(venezuela_tz).date()
 
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B Enterprise Elite V36",
+    page_title="Frumix C.A. - ERP B2B Enterprise Elite V37",
     page_icon="🍓",
     layout="wide",
 )
@@ -32,7 +32,7 @@ def keep_alive():
 
 threading.Thread(target=keep_alive, daemon=True).start()
 
-DB_NAME = "frumix_enterprise_elite_v36.db"
+DB_NAME = "frumix_enterprise_elite_v37.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -75,7 +75,6 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             codigo TEXT,
             descripcion TEXT,
-            calidad TEXT,
             empaque_kg REAL,
             precio_caja REAL,
             orden INTEGER
@@ -293,7 +292,7 @@ modulos_disponibles = [
     "17. 📋 Historial Completo de Pedidos & Edición/Eliminación",
 ]
 
-menu = st.sidebar.radio("Módulos ERP Enterprise Elite V36:", modulos_disponibles)
+menu = st.sidebar.radio("Módulos ERP Enterprise Elite V37:", modulos_disponibles)
 
 # ---------------------------------------------------------
 # 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
@@ -592,7 +591,7 @@ elif menu.startswith("3."):
                         <div class="header">
                             <div>
                                 <img src="{logo_url}" class="logo" alt="Logo Frumix">
-                                <div style="font-size: 10px; color: #555; margin-top: 4px;">RIF: J-40985632-1 | Caracas, Venezuela</div>
+                                <div style="font-size: 15px; color: #333; margin-top: 4px; font-weight: bold;">RIF: J-40985632-1 | Caracas, Venezuela</div>
                             </div>
                             <div style="text-align: right; font-size: 12px;">
                                 <strong>Documento generado<br>(hora de Caracas):</strong><br>{get_now_vz().strftime('%Y-%m-%d %H:%M:%S')}
@@ -648,11 +647,11 @@ elif menu.startswith("3."):
         st.warning("No hay existencias disponibles en cámaras de frío.")
 
 # ---------------------------------------------------------
-# 4. COTIZADOR PRO (LISTA FIJA DE 26 FRUTAS, ORDEN, CALIBRES Y FUENTE 15PX)
+# 4. COTIZADOR PRO (LISTA FIJA DE 26 FRUTAS, SIN CALIDAD, CALIBRES REALES)
 # ---------------------------------------------------------
 elif menu.startswith("4."):
     st.title("📄 Cotizador B2B Profesional con Cuadro Editable")
-    st.write("Gestiona tu lista fija de cotización basada en la imagen oficial, ajusta el orden, agrega o elimina frutas y genera el formato imprimible con los calibres reales en existencia.")
+    st.write("Gestiona tu lista fija de cotización basada en la imagen oficial, ajusta el orden, precios y genera el formato imprimible con los calibres reales en cámaras.")
 
     conn = sqlite3.connect(DB_NAME)
     df_cot_items = pd.read_sql("SELECT * FROM cotizador_items", conn) if "cotizador_items" in [row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()] else pd.DataFrame()
@@ -662,32 +661,32 @@ elif menu.startswith("4."):
 
     if df_cot_items.empty:
         items_iniciales = [
-            ("MANZANA GALA", "Premium", 19.0, 59.66, 1),
-            ("MANZANA ROJA", "Premium", 19.0, 72.01, 2),
-            ("MANZANA VERDE", "Premium", 19.0, 79.04, 3),
-            ("MANZANA AMARILLA (americana)", "A granel", 18.0, 0.00, 4),
-            ("MANZANA PINK LADY", "Premium", 18.5, 58.09, 5),
-            ("PERA VERDE", "Premium", 18.0, 59.94, 6),
-            ("PERA COSCIA", "A granel", 10.0, 0.00, 7),
-            ("PERA FORELLE", "A granel", 9.0, 0.00, 8),
-            ("UVA RED GLOBE", "Premium", 8.2, 65.02, 9),
-            ("UVA VERDE S/SEMILLA", "Premium", 8.2, 50.00, 10),
-            ("UVA NEGRA S/SEMILLA", "A granel", 7.3, 0.00, 11),
-            ("CIRUELA IMPORTADA", "Premium", 9.0, 70.02, 12),
-            ("KIWI VERDE", "Premium", 10.0, 60.00, 13),
-            ("KIWI AMARILLO", "A granel", 9.0, 0.00, 14),
-            ("GRANADA", "A granel", 3.8, 0.00, 15),
-            ("CEREZA", "A granel", 2.5, 0.00, 16),
-            ("CEREZA (Jumbo)", "Premium", 5.0, 0.00, 17),
-            ("ARANDANOS", "A granel", 0.125, 4.00, 18),
-            ("NARANJAS IMPORTADAS", "Premium", 15.0, 66.00, 19),
-            ("TANGELO", "A granel", 9.5, 0.00, 20),
-            ("MANDARINAS IMPORTADAS", "Premium", 9.5, 55.00, 21),
-            ("POMELO", "A granel", 14.5, 0.00, 22),
-            ("PITAHAYA ROJA", "A granel", 1.0, 0.00, 23),
-            ("PITAHAYA AMARILLA", "A granel", 1.0, 0.00, 24),
-            ("NECTARINA", "A granel", 9.0, 0.00, 25),
-            ("LIMÓN AMARILLO (Importado)", "A granel", 16.0, 0.00, 26)
+            ("MANZANA GALA", 19.0, 59.66, 1),
+            ("MANZANA ROJA", 19.0, 72.01, 2),
+            ("MANZANA VERDE", 19.0, 79.04, 3),
+            ("MANZANA AMARILLA (americana)", 18.0, 0.00, 4),
+            ("MANZANA PINK LADY", 18.5, 58.09, 5),
+            ("PERA VERDE", 18.0, 59.94, 6),
+            ("PERA COSCIA", 10.0, 0.00, 7),
+            ("PERA FORELLE", 9.0, 0.00, 8),
+            ("UVA RED GLOBE", 8.2, 65.02, 9),
+            ("UVA VERDE S/SEMILLA", 8.2, 50.00, 10),
+            ("UVA NEGRA S/SEMILLA", 7.3, 0.00, 11),
+            ("CIRUELA IMPORTADA", 9.0, 70.02, 12),
+            ("KIWI VERDE", 10.0, 60.00, 13),
+            ("KIWI AMARILLO", 9.0, 0.00, 14),
+            ("GRANADA", 3.8, 0.00, 15),
+            ("CEREZA", 2.5, 0.00, 16),
+            ("CEREZA", 5.0, 0.00, 17),
+            ("ARANDANOS", 0.125, 4.00, 18),
+            ("NARANJAS IMPORTADAS", 15.0, 66.00, 19),
+            ("TANGELO", 9.5, 0.00, 20),
+            ("MANDARINAS IMPORTADAS", 9.5, 55.00, 21),
+            ("POMELO", 14.5, 0.00, 22),
+            ("PITAHAYA ROJA", 1.0, 0.00, 23),
+            ("PITAHAYA AMARILLA", 1.0, 0.00, 24),
+            ("NECTARINA", 9.0, 0.00, 25),
+            ("LIMÓN AMARILLO (Importado)", 16.0, 0.00, 26)
         ]
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
@@ -696,14 +695,13 @@ elif menu.startswith("4."):
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 codigo TEXT,
                 descripcion TEXT,
-                calidad TEXT,
                 empaque_kg REAL,
                 precio_caja REAL,
                 orden INTEGER
             )
         """)
-        for desc, cal, emp, prec, ord_n in items_iniciales:
-            cursor.execute("INSERT INTO cotizador_items (codigo, descripcion, calidad, empaque_kg, precio_caja, orden) VALUES (?, ?, ?, ?, ?, ?)", (f"FRU-{ord_n:02d}", desc, cal, emp, prec, ord_n))
+        for desc, emp, prec, ord_n in items_iniciales:
+            cursor.execute("INSERT INTO cotizador_items (codigo, descripcion, empaque_kg, precio_caja, orden) VALUES (?, ?, ?, ?, ?)", (f"FRU-{ord_n:02d}", desc, emp, prec, ord_n))
         conn.commit()
         conn.close()
         
@@ -741,10 +739,10 @@ elif menu.startswith("4."):
         st.subheader("📋 Tabla de Precios Interactiva (Editable y Ordenable)")
         st.info("💡 Edita los precios por caja o ajusta el número de orden para cambiar cómo se listarán las frutas. Haz clic en 'Guardar Cambios y Orden'.")
 
-        df_editor_v = df_cot_items[["id", "orden", "codigo", "descripcion", "calidad", "empaque_kg", "precio_caja"]].sort_values(by="orden").copy()
-        df_editor_v.columns = ["ID", "ORDEN", "CÓDIGO", "DESCRIPCIÓN", "CALIDAD", "EMPAQUE/KG", "PRECIO CAJA ($)"]
+        df_editor_v = df_cot_items[["id", "orden", "codigo", "descripcion", "empaque_kg", "precio_caja"]].sort_values(by="orden").copy()
+        df_editor_v.columns = ["ID", "ORDEN", "CÓDIGO", "DESCRIPCIÓN", "EMPAQUE/KG", "PRECIO CAJA ($)"]
 
-        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra_v36", num_rows="dynamic")
+        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra_v37", num_rows="dynamic")
 
         if st.button("💾 Guardar Cambios, Precios y Orden de Frutas"):
             try:
@@ -753,9 +751,9 @@ elif menu.startswith("4."):
                 for _, r in df_editado_venta.iterrows():
                     cursor.execute("""
                         UPDATE cotizador_items 
-                        SET orden = ?, codigo = ?, descripcion = ?, calidad = ?, empaque_kg = ?, precio_caja = ?
+                        SET orden = ?, codigo = ?, descripcion = ?, empaque_kg = ?, precio_caja = ?
                         WHERE id = ?
-                    """, (int(r["ORDEN"]), str(r["CÓDIGO"]), str(r["DESCRIPCIÓN"]).upper(), str(r["CALIDAD"]), float(r["EMPAQUE/KG"]), float(r["PRECIO CAJA ($)"]), int(r["ID"])))
+                    """, (int(r["ORDEN"]), str(r["CÓDIGO"]), str(r["DESCRIPCIÓN"]).upper(), float(r["EMPAQUE/KG"]), float(r["PRECIO CAJA ($)"]), int(r["ID"])))
                 conn.commit()
                 conn.close()
                 st.success("¡Lista de cotización actualizada y ordenada con éxito!")
@@ -780,7 +778,6 @@ elif menu.startswith("4."):
             st.subheader("Añadir Nueva Fruta a la Lista Fija de Cotización")
             nc_cod = st.text_input("Código de Fruta (Ej. FRU-27)")
             nc_desc = st.text_input("Descripción de la Fruta")
-            nc_calidad = st.selectbox("Calidad", ["Premium", "Con detalle", "A granel"])
             nc_emp = st.number_input("Empaque en Kg por Caja", min_value=0.01, value=19.0)
             nc_prec = st.number_input("Precio por Caja ($)", min_value=0.0, value=60.0)
             nc_ord = st.number_input("Orden en la Lista", min_value=1, value=len(df_cot_items)+1)
@@ -790,16 +787,16 @@ elif menu.startswith("4."):
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
                     cursor.execute("""
-                        INSERT INTO cotizador_items (codigo, descripcion, calidad, empaque_kg, precio_caja, orden)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, (nc_cod.upper(), nc_desc.upper(), nc_calidad, nc_emp, nc_prec, int(nc_ord)))
+                        INSERT INTO cotizador_items (codigo, descripcion, empaque_kg, precio_caja, orden)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (nc_cod.upper(), nc_desc.upper(), nc_emp, nc_prec, int(nc_ord)))
                     conn.commit()
                     conn.close()
                     st.success("¡Fruta añadida a la lista de cotización!")
                     st.rerun()
 
     st.markdown("---")
-    st.subheader("📄 Generar Formato Imprimible con Calibres en Cámaras")
+    st.subheader("📄 Generar Formato Imprimible con Calibres Reales en Cámaras")
     if st.button("📥 Generar Documento HTML de Cotización Oficial"):
         logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
         
@@ -828,7 +825,7 @@ elif menu.startswith("4."):
             <div class="header">
                 <div>
                     <img src="{logo_url}" class="logo" alt="Logo Frumix C.A.">
-                    <div style="font-size: 11px; color: #555; margin-top: 5px;">RIF: J-40985632-1 | Caracas, Venezuela</div>
+                    <div style="font-size: 15px; color: #333; margin-top: 5px; font-weight: bold;">RIF: J-40985632-1 | Caracas, Venezuela</div>
                 </div>
                 <div style="text-align: right; font-size: 12px;">
                     <strong>Fecha:</strong> {get_today_vz()}<br>
@@ -846,9 +843,8 @@ elif menu.startswith("4."):
                 <tr>
                     <th>Código</th>
                     <th>Descripción</th>
-                    <th>Calidad</th>
-                    <th>Empaque (Kg)</th>
-                    <th>Calibres en Existencia (Cámaras)</th>
+                    <th>Presentación (KG)</th>
+                    <th>Calibres Reales (Cámaras)</th>
                     <th>Precio Caja ($)</th>
                     <th>Precio por KG ($)</th>
                 </tr>
@@ -857,13 +853,14 @@ elif menu.startswith("4."):
         for _, r in df_final_cot.iterrows():
             desc_fruta = str(r['descripcion']).upper()
             if not df_inv_existencias.empty:
+                # Buscamos los calibres reales en inventario para esta fruta
                 calibres_encontrados = df_inv_existencias[df_inv_existencias['producto'].str.upper() == desc_fruta]['calibre'].unique().tolist()
                 calibres_str = ", ".join([str(c) for c in calibres_encontrados if c and c != "N/A"]) if calibres_encontrados else "Disponible / Estándar"
             else:
                 calibres_str = "Sujeto a confirmación"
                 
             p_kg = round(r['precio_caja'] / r['empaque_kg'], 2) if r['empaque_kg'] > 0 else 0.0
-            html_doc += f"<tr><td>{r['codigo']}</td><td>{r['descripcion']}</td><td>{r['calidad']}</td><td>{r['empaque_kg']}</td><td><strong>{calibres_str}</strong></td><td>${r['precio_caja']:.2f}</td><td>${p_kg:.2f}</td></tr>"
+            html_doc += f"<tr><td>{r['codigo']}</td><td>{r['descripcion']}</td><td>{r['empaque_kg']}</td><td><strong>{calibres_str}</strong></td><td>${r['precio_caja']:.2f}</td><td>${p_kg:.2f}</td></tr>"
             
         html_doc += f"""
             </table>
@@ -881,9 +878,9 @@ elif menu.startswith("4."):
         </html>
         """
         st.download_button(
-            label="📥 Descargar Cotización Oficial con Calibres en HTML",
+            label="📥 Descargar Cotización Oficial con Calibres Reales en HTML",
             data=html_doc,
-            file_name=f"Cotizacion_Calibres_Frumix_{get_today_vz()}.html",
+            file_name=f"Cotizacion_Calibres_Reales_Frumix_{get_today_vz()}.html",
             mime="text/html"
         )
 
@@ -944,7 +941,7 @@ elif menu.startswith("5."):
                     <div class="header">
                         <div>
                             <img src="{logo_url}" class="logo" alt="Logo Frumix">
-                            <div style="font-size: 10px; color: #555; margin-top: 4px;">RIF: J-40985632-1 | Caracas, Venezuela</div>
+                            <div style="font-size: 15px; color: #333; margin-top: 4px; font-weight: bold;">RIF: J-40985632-1 | Caracas, Venezuela</div>
                         </div>
                         <div style="text-align: right; font-size: 12px;">
                             <strong>Fecha de Emisión:</strong> {fecha_em_m}<br>
