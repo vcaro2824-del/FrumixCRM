@@ -23,7 +23,7 @@ def get_today_vz():
 # CONFIGURACIÓN DE PÁGINA CORPORATIVA
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B Enterprise Elite V35",
+    page_title="Frumix C.A. - ERP B2B Enterprise Elite V36",
     page_icon="🍓",
     layout="wide",
 )
@@ -42,9 +42,9 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V35 VACÍA
+# NUEVA BASE DE DATOS LIMPIA (V36)
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_elite_v35.db"
+DB_NAME = "frumix_enterprise_elite_v36.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -162,7 +162,7 @@ def init_db():
             sucursal TEXT,
             producto TEXT,
             calibre TEXT,
-            cantidad_devuelta REAL,
+            cantidad_devuelta TEXT,
             motivo_devolucion TEXT,
             destino_accion TEXT,
             fecha_devolucion TEXT
@@ -293,7 +293,7 @@ modulos_disponibles = [
     "17. 📋 Historial Completo de Pedidos & Edición/Eliminación",
 ]
 
-menu = st.sidebar.radio("Módulos ERP Enterprise Elite V35:", modulos_disponibles)
+menu = st.sidebar.radio("Módulos ERP Enterprise Elite V36:", modulos_disponibles)
 
 # ---------------------------------------------------------
 # 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
