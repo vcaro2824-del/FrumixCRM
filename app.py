@@ -50,6 +50,7 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
+    # 1. Cartera de Clientes Oficial
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,6 +67,7 @@ def init_db():
         )
     """)
     
+    # 2. Catálogo Base de Productos
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS matriz_precios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,6 +84,7 @@ def init_db():
         )
     """)
     
+    # 3. Pedidos (Reserva Inmediata de Stock y Reversión Automática)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS pedidos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,6 +104,7 @@ def init_db():
         )
     """)
 
+    # 4. Cobranza y Facturación Independiente
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS cobranza (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -114,6 +118,7 @@ def init_db():
         )
     """)
 
+    # 5. Inventario por Lote, Producto y Calibre Opcional
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS inventario (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,6 +131,7 @@ def init_db():
         )
     """)
 
+    # 5.1. Kardex de Movimientos & Auditoría de Stock
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS movimientos_inventario (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -140,6 +146,7 @@ def init_db():
         )
     """)
 
+    # 6. Mermas y Pérdidas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS mermas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -154,6 +161,7 @@ def init_db():
         )
     """)
 
+    # 6.1. Devoluciones de Clientes (Destino Merma o Reingreso)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS devoluciones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -169,6 +177,7 @@ def init_db():
         )
     """)
 
+    # 7. Bitácora de Auditoría de Accesos y Acciones
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS bitacora_auditoria (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -180,6 +189,7 @@ def init_db():
         )
     """)
 
+    # 8. Clientes exclusivos para el módulo de Cotizaciones
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes_cotizaciones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -201,6 +211,9 @@ EMPRESA = {
     "telefono": "+58 412-FRUMIX1",
 }
 
+# ---------------------------------------------------------
+# FUNCIONES DE CONSULTA
+# ---------------------------------------------------------
 def get_catalogo_cache():
     conn = sqlite3.connect(DB_NAME)
     df = pd.read_sql("SELECT * FROM matriz_precios", conn)
@@ -233,6 +246,9 @@ def registrar_auditoria(usuario, rol, accion, detalles):
     except:
         pass
 
+# ---------------------------------------------------------
+# SISTEMA DE AUTENTICACIÓN Y ROLES CON AUDITORÍA
+# ---------------------------------------------------------
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
     st.session_state.usuario = ""
@@ -265,6 +281,9 @@ if not st.session_state.autenticado:
                 st.error("Usuario o contraseña incorrectos.")
     st.stop()
 
+# ---------------------------------------------------------
+# MENÚ LATERAL ERP COMPLETO (MÓDULOS V35)
+# ---------------------------------------------------------
 st.sidebar.markdown(f"### 🍓 {EMPRESA['nombre']}")
 st.sidebar.markdown(f"**Usuario Activo:** {st.session_state.rol}")
 if st.sidebar.button("🚪 Cerrar Sesión"):
@@ -295,6 +314,9 @@ modulos_disponibles = [
 
 menu = st.sidebar.radio("Módulos ERP Enterprise Elite V35:", modulos_disponibles)
 
+# ---------------------------------------------------------
+# 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
+# ---------------------------------------------------------
 if menu.startswith("1."):
     st.title("📊 Dashboard Gerencial, Estado de Resultados y Auditoría")
     st.write("Centro analítico con control de actividad de usuarios y salud financiera.")
@@ -332,9 +354,12 @@ if menu.startswith("1."):
     else:
         st.info("No hay registros en la bitácora de auditoría.")
 
+# ---------------------------------------------------------
+# 2. INVENTARIO FLEXIBLE (STOCK, CALIBRE Y EDICIÓN MANUAL)
+# ---------------------------------------------------------
 elif menu.startswith("2."):
     st.title("📦 Inventario Flexible - Control por Calibre Opcional y Edición Manual")
-    st.write("Administra el stock en cámaras.")
+    st.write("Administra el stock en cámaras. Los calibres por debajo de 10 cajas se marcan en alerta crítica.")
 
     tab_inv1, tab_inv2, tab_inv3 = st.tabs(["📋 Existencias & Alertas Críticas", "➕ Añadir Lote de Fruta", "🗑️ Eliminar Lote"])
 
@@ -342,7 +367,14 @@ elif menu.startswith("2."):
         df_inv = get_inventario_cache()
         if not df_inv.empty:
             st.subheader("📊 Tabla de Existencias en Cámaras")
-            st.dataframe(df_inv, use_container_width=True)
+            
+            def destacar_critico(val):
+                color = 'red' if val < 10 else 'black'
+                return f'color: {color}; font-weight: bold;'
+
+            # CORREGIDO AQUÍ: .map en lugar de .applymap para evitar AttributeError en versiones modernas
+            st.dataframe(df_inv.style.map(destacar_critico, subset=['stock_cajas']), use_container_width=True)
+            st.caption("🔴 *Nota:* Los valores en rojo indican stock crítico menor a 10 cajas.")
 
             csv_inv = df_inv.to_csv(index=False).encode('utf-8')
             st.download_button("📥 Descargar Inventario en Excel (CSV)", csv_inv, "inventario_frumix.csv", "text/csv")
@@ -439,12 +471,13 @@ elif menu.startswith("2."):
                 conn.close()
                 st.success("¡Lote eliminado del sistema!")
                 st.rerun()
+
 # ---------------------------------------------------------
 # 3. GENERADOR DE PEDIDOS (RESERVA AUTOMÁTICA DE STOCK)
 # ---------------------------------------------------------
 elif menu.startswith("3."):
     st.title("🛒 Generador de Pedidos B2B (Reserva Inmediata de Stock)")
-    st.write("Al levantar un pedido, la mercancía se descuenta de inmediato de las cámaras.")
+    st.write("Al levantar un pedido, la mercancía **se descuenta y reserva de inmediato** de las cámaras de frío.")
 
     df_cli_db = get_clientes_cache()
     df_inv_db = get_inventario_cache()
@@ -556,7 +589,7 @@ elif menu.startswith("3."):
 
                         registrar_auditoria(st.session_state.usuario, st.session_state.rol, "REGISTRO PEDIDO", f"Pedido {nro_p} creado para {cli_sel} - {suc_sel} por ${monto_total_ped:,.2f}")
                         st.session_state.carrito_pedido = []
-                        st.success(f"¡Pedido {nro_p} procesado con éxito!")
+                        st.success(f"¡Pedido {nro_p} procesado con éxito! Las existencias fueron descontadas de cámaras de frío.")
                         st.rerun()
 
                     except Exception as e:
@@ -848,7 +881,7 @@ elif menu.startswith("7."):
 # ---------------------------------------------------------
 elif menu.startswith("8."):
     st.title("🏢 Cartera Oficial de Clientes (Manual, Editable y con Sucursales)")
-    st.write("Tu directorio oficial de clientes.")
+    st.write("Tu directorio oficial de clientes. Inicialmente vacío para que cargues 1. a 1. cada empresa matriz y sus respectivas sucursales.")
 
     tab_c1, tab_c2, tab_c3 = st.tabs(["📋 Directorio Oficial", "✏️ Editar Sucursal / Cliente", "➕ Registrar Cliente o Sucursal"])
 
@@ -871,7 +904,7 @@ elif menu.startswith("8."):
                 st.success("¡Sucursal eliminada de la cartera!")
                 st.rerun()
         else:
-            st.info("Tu cartera de clientes está vacía.")
+            st.info("Tu cartera de clientes está vacía. Añade tu primer cliente en la pestaña 'Registrar Cliente o Sucursal'.")
 
     with tab_c2:
         df_cli_ed = get_clientes_cache()
@@ -968,6 +1001,7 @@ elif menu.startswith("10."):
         st.download_button("📥 Descargar Reporte en Excel (CSV)", csv_rep, "reporte_ventas.csv", "text/csv")
     else:
         st.info("No hay pedidos registrados.")
+
 # ---------------------------------------------------------
 # 11. EMBUDO DE VENTAS
 # ---------------------------------------------------------
