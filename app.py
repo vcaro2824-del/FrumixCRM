@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, date, timedelta, timezone
 import sqlite3
 import json
 import threading
@@ -8,10 +8,21 @@ import time
 import urllib.request
 
 # ---------------------------------------------------------
+# CONFIGURACIÓN DE ZONA HORARIA VENEZUELA (UTC-4)
+# ---------------------------------------------------------
+venezuela_tz = timezone(timedelta(hours=-4))
+
+def get_now_vz():
+    return datetime.now(venezuela_tz)
+
+def get_today_vz():
+    return datetime.now(venezuela_tz).date()
+
+# ---------------------------------------------------------
 # CONFIGURACIÓN DE PÁGINA CORPORATIVA
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B Enterprise Elite V30",
+    page_title="Frumix C.A. - ERP B2B Enterprise Elite V31",
     page_icon="🍓",
     layout="wide",
 )
@@ -33,9 +44,9 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V30 ESTABLE
+# BASE DE DATOS RELACIONAL INTEGRAL (SQLITE) - V31 ESTABLE
 # ---------------------------------------------------------
-DB_NAME = "frumix_enterprise_elite_v30.db"
+DB_NAME = "frumix_enterprise_elite_v31.db"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -230,10 +241,11 @@ def registrar_auditoria(usuario, rol, accion, detalles):
     try:
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
+        hora_vz = get_now_vz().strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute("""
             INSERT INTO bitacora_auditoria (usuario, rol, accion, detalles, fecha_hora)
             VALUES (?, ?, ?, ?, ?)
-        """, (usuario, rol, accion, detalles, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        """, (usuario, rol, accion, detalles, hora_vz))
         conn.commit()
         conn.close()
     except:
@@ -275,7 +287,7 @@ if not st.session_state.autenticado:
     st.stop()
 
 # ---------------------------------------------------------
-# MENÚ LATERAL ERP COMPLETO (MÓDULOS V30)
+# MENÚ LATERAL ERP COMPLETO (MÓDULOS V31)
 # ---------------------------------------------------------
 st.sidebar.markdown(f"### 🍓 {EMPRESA['nombre']}")
 st.sidebar.markdown(f"**Usuario Activo:** {st.session_state.rol}")
@@ -305,7 +317,7 @@ modulos_disponibles = [
     "17. 📋 Historial Completo de Pedidos & Eliminación con Reversión",
 ]
 
-menu = st.sidebar.radio("Módulos ERP Enterprise Elite V30:", modulos_disponibles)
+menu = st.sidebar.radio("Módulos ERP Enterprise Elite V31:", modulos_disponibles)
 
 # ---------------------------------------------------------
 # 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
@@ -389,7 +401,7 @@ elif menu.startswith("2."):
                 cursor.execute("""
                     INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
                     VALUES (?, ?, ?, 'AJUSTE MANUAL', ?, ?, ?, ?)
-                """, (row_stk_edit["lote"], row_stk_edit["producto"], row_stk_edit["calibre"], nuevo_stock_manual, f"Ajuste manual: {motivo_ajuste_stk}", str(date.today()), st.session_state.rol))
+                """, (row_stk_edit["lote"], row_stk_edit["producto"], row_stk_edit["calibre"], nuevo_stock_manual, f"Ajuste manual: {motivo_ajuste_stk}", str(get_today_vz()), st.session_state.rol))
                 
                 conn.commit()
                 conn.close()
@@ -412,7 +424,7 @@ elif menu.startswith("2."):
                 c1, c2 = st.columns(2)
                 with c1:
                     fruta_sel = st.selectbox("Seleccionar Fruta", lista_frutas_cat)
-                    lote_num = st.text_input("Número de Lote", value=f"LOTE-{datetime.now().strftime('%Y%m%d')}")
+                    lote_num = st.text_input("Número de Lote", value=f"LOTE-{get_now_vz().strftime('%Y%m%d')}")
                     
                     row_prod_info = df_cat[df_cat["descripcion"] == fruta_sel].iloc[0]
                     maneja_calibre = row_prod_info["maneja_calibre"]
@@ -425,7 +437,7 @@ elif menu.startswith("2."):
                 with c2:
                     cajas_ingreso = st.number_input("Cantidad de Cajas", min_value=1.0, value=100.0)
                     costo_caja = st.number_input("Costo Unitario por Caja ($)", min_value=0.0, value=50.0)
-                    fecha_ing = st.date_input("Fecha de Ingreso", value=date.today())
+                    fecha_ing = st.date_input("Fecha de Ingreso", value=get_today_vz())
 
                 if st.form_submit_button("💾 Guardar Lote en Inventario"):
                     if fruta_sel:
@@ -553,16 +565,16 @@ elif menu.startswith("3."):
                         cursor = conn.cursor()
                         cursor.execute("BEGIN TRANSACTION;")
 
-                        nro_p = f"PED-{datetime.now().strftime('%Y%m%d%H%M')}"
+                        nro_p = f"PED-{get_now_vz().strftime('%Y%m%d%H%M')}"
                         costo_total_ped = sum(item["cajas"] * item["costo_unitario"] for item in st.session_state.carrito_pedido)
                         ganancia_ped = monto_total_ped - costo_total_ped
 
                         cursor.execute("""
                             INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
                             VALUES (?, ?, ?, ?, ?, ?, 'Pedido B2B - Reserva de Stock', ?, ?, ?, ?, 'Reservado / En Espera', ?)
-                        """, (nro_p, cli_sel, suc_sel, st.session_state.rol, asesor_asignado, "Cliente Final", str(date.today()), monto_total_ped, costo_total_ped, ganancia_ped, json.dumps(st.session_state.carrito_pedido)))
+                        """, (nro_p, cli_sel, suc_sel, st.session_state.rol, asesor_asignado, "Cliente Final", str(get_today_vz()), monto_total_ped, costo_total_ped, ganancia_ped, json.dumps(st.session_state.carrito_pedido)))
 
-                        cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ? AND sucursal = ?", (str(date.today()), cli_sel, suc_sel))
+                        cursor.execute("UPDATE clientes SET ultimo_pedido = ? WHERE matriz = ? AND sucursal = ?", (str(get_today_vz()), cli_sel, suc_sel))
 
                         for item in st.session_state.carrito_pedido:
                             cursor.execute("SELECT stock_cajas FROM inventario WHERE id = ?", (item["inventario_id"],))
@@ -574,7 +586,7 @@ elif menu.startswith("3."):
                             cursor.execute("""
                                 INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
                                 VALUES (?, ?, ?, 'RESERVA SALIDA', ?, ?, ?, ?)
-                            """, (item["lote"], item["producto"], item["calibre"], item["cajas"], f"Reserva Pedido {nro_p}", str(date.today()), st.session_state.rol))
+                            """, (item["lote"], item["producto"], item["calibre"], item["cajas"], f"Reserva Pedido {nro_p}", str(get_today_vz()), st.session_state.rol))
 
                         conn.commit()
                         conn.close()
@@ -626,7 +638,7 @@ elif menu.startswith("4."):
     else:
         dest_sel = "Cliente General / Mostrador"
 
-    vig_sel = st.date_input("Validez de la cotización:", value=date.today() + pd.Timedelta(days=7))
+    vig_sel = st.date_input("Validez de la cotización:", value=get_today_vz() + timedelta(days=7))
 
     st.markdown("---")
     st.subheader("📋 Cuadro de Precios Editable:")
@@ -673,7 +685,7 @@ elif menu.startswith("4."):
                         <div style="font-size: 11px; color: #555; margin-top: 5px;">RIF: J-40985632-1 | Caracas, Venezuela</div>
                     </div>
                     <div style="text-align: right; font-size: 12px;">
-                        <strong>Fecha:</strong> {date.today()}<br>
+                        <strong>Fecha:</strong> {get_today_vz()}<br>
                         <strong>Destinatario:</strong> {dest_sel}
                     </div>
                 </div>
@@ -714,7 +726,7 @@ elif menu.startswith("4."):
             st.download_button(
                 label="💾 Descargar Cotización en HTML para Imprimir / WhatsApp",
                 data=html_doc,
-                file_name=f"Cotizacion_Frumix_{date.today()}.html",
+                file_name=f"Cotizacion_Frumix_{get_today_vz()}.html",
                 mime="text/html"
             )
     else:
@@ -738,11 +750,11 @@ elif menu.startswith("5."):
             cliente_fac_sel = st.selectbox("Empresa Matriz Cliente", lista_mat_f)
             monto_fac_m = st.number_input("Monto Total de la Factura ($)", min_value=1.0, value=1000.0)
             dias_venc_m = st.number_input("Días de Crédito Otorgados", min_value=1, value=15)
-            fecha_em_m = st.date_input("Fecha de Emisión", value=date.today())
+            fecha_em_m = st.date_input("Fecha de Emisión", value=get_today_vz())
 
             if st.form_submit_button("💾 Registrar Factura y Activar Cuenta por Cobrar"):
                 if nro_factura_m:
-                    fecha_venc_calc = fecha_em_m + pd.Timedelta(days=int(dias_venc_m))
+                    fecha_venc_calc = fecha_em_m + timedelta(days=int(dias_venc_m))
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
                     cursor.execute("""
@@ -948,7 +960,7 @@ elif menu.startswith("8."):
                     cursor.execute("""
                         INSERT INTO clientes (matriz, sucursal, segmento, tarifa, dupla, telefono, contacto, limite_credito_dias, limite_credito_dolares, ultimo_pedido)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (nc_mat.upper(), nc_suc.upper(), nc_seg, nc_tarifa, nc_dupla, nc_tel, nc_cont, int(nc_dias), nc_monto, str(date.today())))
+                    """, (nc_mat.upper(), nc_suc.upper(), nc_seg, nc_tarifa, nc_dupla, nc_tel, nc_cont, int(nc_dias), nc_monto, str(get_today_vz())))
                     conn.commit()
                     conn.close()
                     
@@ -1106,13 +1118,13 @@ elif menu.startswith("15."):
                     
                     perdida = cajas_m * row_m["costo_unitario_caja"]
                     cursor.execute("INSERT INTO mermas (lote, producto, calibre, cantidad_perdida, costo_unitario, perdida_monetaria, motivo, fecha_merma) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                                   (row_m["lote"], row_m["producto"], row_m["calibre"], cajas_m, row_m["costo_unitario_caja"], perdida, motivo_m, str(date.today())))
+                                   (row_m["lote"], row_m["producto"], row_m["calibre"], cajas_m, row_m["costo_unitario_caja"], perdida, motivo_m, str(get_today_vz())))
                     
                     nuevo_stk = max(0.0, row_m["stock_cajas"] - cajas_m)
                     cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stk, id_inv_m))
                     
                     cursor.execute("INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable) VALUES (?, ?, ?, 'SALIDA MERMA', ?, ?, ?, ?)",
-                                   (row_m["lote"], row_m["producto"], row_m["calibre"], cajas_m, f"Merma: {motivo_m}", str(date.today()), st.session_state.rol))
+                                   (row_m["lote"], row_m["producto"], row_m["calibre"], cajas_m, f"Merma: {motivo_m}", str(get_today_vz()), st.session_state.rol))
                     
                     conn.commit()
                     conn.close()
@@ -1156,13 +1168,13 @@ elif menu.startswith("16."):
                     cursor.execute("""
                         INSERT INTO devoluciones (nro_pedido, cliente, sucursal, producto, calibre, cantidad_devuelta, motivo_devolucion, destino_accion, fecha_devolucion)
                         VALUES ('DEV-MANUAL', ?, 'Principal', ?, ?, ?, ?, ?, ?)
-                    """, (mat_dev, prod_dev.upper(), cal_dev.upper(), cant_dev, motivo_dev, destino_dev, str(date.today())))
+                    """, (mat_dev, prod_dev.upper(), cal_dev.upper(), cant_dev, motivo_dev, destino_dev, str(get_today_vz())))
 
                     if "Reingresar" in destino_dev:
                         cursor.execute("""
                             INSERT INTO inventario (lote, producto, calibre, stock_cajas, costo_unitario_caja, fecha_ingreso)
                             VALUES ('LOTE-DEV', ?, ?, ?, 45.0, ?)
-                        """, (prod_dev.upper(), cal_dev.upper(), cant_dev, str(date.today())))
+                        """, (prod_dev.upper(), cal_dev.upper(), cant_dev, str(get_today_vz())))
                     
                     conn.commit()
                     conn.close()
@@ -1219,12 +1231,12 @@ elif menu.startswith("17."):
                                 cursor.execute("""
                                     INSERT INTO inventario (lote, producto, calibre, stock_cajas, costo_unitario_caja, fecha_ingreso)
                                     VALUES (?, ?, ?, ?, ?, ?)
-                                """, (item["lote"], item["producto"], item["calibre"], cajas_dev, item["costo_unitario"], str(date.today())))
+                                """, (item["lote"], item["producto"], item["calibre"], cajas_dev, item["costo_unitario"], str(get_today_vz())))
 
                             cursor.execute("""
                                 INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
                                 VALUES (?, ?, ?, 'REINGRESO ANULACIÓN', ?, ?, ?, ?)
-                            """, (item["lote"], item["producto"], item["calibre"], cajas_dev, f"Anulación Pedido {nro_ped_del}", str(date.today()), st.session_state.rol))
+                            """, (item["lote"], item["producto"], item["calibre"], cajas_dev, f"Anulación Pedido {nro_ped_del}", str(get_today_vz()), st.session_state.rol))
 
                     cursor.execute("DELETE FROM pedidos WHERE id = ?", (int(pedido_id_del),))
                     conn.commit()
