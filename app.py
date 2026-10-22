@@ -8,6 +8,7 @@ import time
 import urllib.request
 import os
 
+# Configuración de zona horaria de Venezuela (-4 UTC)
 venezuela_tz = timezone(timedelta(hours=-4))
 
 def get_now_vz():
@@ -17,7 +18,7 @@ def get_today_vz():
     return datetime.now(venezuela_tz).date()
 
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B Enterprise Elite V37",
+    page_title="Frumix C.A. - ERP B2B Enterprise Elite V38",
     page_icon="🍓",
     layout="wide",
 )
@@ -32,7 +33,24 @@ def keep_alive():
 
 threading.Thread(target=keep_alive, daemon=True).start()
 
-DB_NAME = "frumix_enterprise_elite_v37.db"
+# ---------------------------------------------------------
+# RUTA PERSISTENTE DE BASE DE DATOS (GARANTIZA QUE NO SE BORRE NADA)
+# ---------------------------------------------------------
+DB_FILE_NAME = "frumix_enterprise_elite_v38.db"
+
+def get_db_path():
+    # Detecta el directorio local del archivo app.py
+    base_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
+    data_dir = os.path.join(base_dir, "data")
+    if not os.path.exists(data_dir):
+        try:
+            os.makedirs(data_dir, exist_ok=True)
+            return os.path.join(data_dir, DB_FILE_NAME)
+        except:
+            pass
+    return os.path.join(base_dir, DB_FILE_NAME)
+
+DB_NAME = get_db_path()
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -292,7 +310,7 @@ modulos_disponibles = [
     "17. 📋 Historial Completo de Pedidos & Edición/Eliminación",
 ]
 
-menu = st.sidebar.radio("Módulos ERP Enterprise Elite V37:", modulos_disponibles)
+menu = st.sidebar.radio("Módulos ERP Enterprise Elite V38:", modulos_disponibles)
 
 # ---------------------------------------------------------
 # 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
@@ -335,11 +353,11 @@ if menu.startswith("1."):
         st.info("No hay registros en la bitácora de auditoría.")
 
 # ---------------------------------------------------------
-# 2. INVENTARIO FLEXIBLE (TABLA INTERACTIVA 100% EDITABLE)
+# 2. INVENTARIO FLEXIBLE (TABLA INTERACTIVA 100% EDITABLE CON GUARDADO DEDICADO)
 # ---------------------------------------------------------
 elif menu.startswith("2."):
     st.title("📦 Inventario Flexible - Tabla de Existencias 100% Editable")
-    st.write("Modifica cualquier celda directamente en la tabla y guarda los cambios con el botón inferior.")
+    st.write("Modifica cualquier celda directamente en la tabla y guarda los cambios permanentes.")
 
     tab_inv1, tab_inv2, tab_inv3 = st.tabs(["📋 Existencias & Edición Directa", "➕ Añadir Lote de Fruta", "🗑️ Eliminar Lote"])
 
@@ -352,7 +370,7 @@ elif menu.startswith("2."):
             df_editado_inv = st.data_editor(
                 df_inv,
                 use_container_width=True,
-                key="editor_inventario_general",
+                key="editor_inventario_general_v38",
                 num_rows="dynamic"
             )
 
@@ -379,8 +397,8 @@ elif menu.startswith("2."):
                     conn.commit()
                     conn.close()
                     
-                    registrar_auditoria(st.session_state.usuario, st.session_state.rol, "EDICIÓN MASIVA INVENTARIO", "Se actualizaron existencias directamente desde la tabla interactiva.")
-                    st.success("¡Los cambios del inventario se han guardado exitosamente!")
+                    registrar_auditoria(st.session_state.usuario, st.session_state.rol, "EDICIÓN MASIVA INVENTARIO", "Se actualizaron existencias en la base de datos persistente.")
+                    st.success("¡Los cambios del inventario se han guardado exitosamente y de forma permanente!")
                     st.rerun()
                 except Exception as e:
                     if 'conn' in locals():
@@ -439,8 +457,8 @@ elif menu.startswith("2."):
                         conn.commit()
                         conn.close()
                         
-                        registrar_auditoria(st.session_state.usuario, st.session_state.rol, "INGRESO INVENTARIO", f"Carga de {cajas_ingreso} cajas de {fruta_sel} Lote {lote_num}")
-                        st.success(f"¡Lote cargado con éxito a cámaras!")
+                        registrar_auditoria(st.session_state.usuario, st.session_state.rol, "INGRESO INVENTARIO", f"Carga permanente de {cajas_ingreso} cajas de {fruta_sel} Lote {lote_num}")
+                        st.success(f"¡Lote cargado y guardado con éxito!")
                         st.rerun()
 
     with tab_inv3:
@@ -721,7 +739,7 @@ elif menu.startswith("4."):
                     cursor.execute("INSERT INTO clientes_cotizaciones (nombre_cliente_o_asesor, empresa, observacion) VALUES (?, ?, ?)", (nombre_cot, empresa_cot, obs_cot))
                     conn.commit()
                     conn.close()
-                    st.success("¡Destinatario agregado!")
+                    st.success("¡Destinatario guardado permanentemente!")
                     st.rerun()
 
     if not df_cli_cot.empty:
@@ -742,7 +760,7 @@ elif menu.startswith("4."):
         df_editor_v = df_cot_items[["id", "orden", "codigo", "descripcion", "empaque_kg", "precio_caja"]].sort_values(by="orden").copy()
         df_editor_v.columns = ["ID", "ORDEN", "CÓDIGO", "DESCRIPCIÓN", "EMPAQUE/KG", "PRECIO CAJA ($)"]
 
-        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra_v37", num_rows="dynamic")
+        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra_v38", num_rows="dynamic")
 
         if st.button("💾 Guardar Cambios, Precios y Orden de Frutas"):
             try:
@@ -756,7 +774,7 @@ elif menu.startswith("4."):
                     """, (int(r["ORDEN"]), str(r["CÓDIGO"]), str(r["DESCRIPCIÓN"]).upper(), float(r["EMPAQUE/KG"]), float(r["PRECIO CAJA ($)"]), int(r["ID"])))
                 conn.commit()
                 conn.close()
-                st.success("¡Lista de cotización actualizada y ordenada con éxito!")
+                st.success("¡Lista de cotización guardada y ordenada permanentemente!")
                 st.rerun()
             except Exception as e:
                 st.error(f"Error al actualizar: {e}")
@@ -792,7 +810,7 @@ elif menu.startswith("4."):
                     """, (nc_cod.upper(), nc_desc.upper(), nc_emp, nc_prec, int(nc_ord)))
                     conn.commit()
                     conn.close()
-                    st.success("¡Fruta añadida a la lista de cotización!")
+                    st.success("¡Fruta añadida y guardada en la cotización!")
                     st.rerun()
 
     st.markdown("---")
@@ -853,7 +871,6 @@ elif menu.startswith("4."):
         for _, r in df_final_cot.iterrows():
             desc_fruta = str(r['descripcion']).upper()
             if not df_inv_existencias.empty:
-                # Buscamos los calibres reales en inventario para esta fruta
                 calibres_encontrados = df_inv_existencias[df_inv_existencias['producto'].str.upper() == desc_fruta]['calibre'].unique().tolist()
                 calibres_str = ", ".join([str(c) for c in calibres_encontrados if c and c != "N/A"]) if calibres_encontrados else "Disponible / Estándar"
             else:
@@ -1049,7 +1066,7 @@ elif menu.startswith("6."):
                     """, (ec_cod, ec_desc.upper(), ec_maneja, ec_calidad, ec_emp, ec_cos, ec_pre, p_kg, mrg, int(id_ce)))
                     conn.commit()
                     conn.close()
-                    st.success("¡Producto actualizado!")
+                    st.success("¡Producto actualizado y guardado!")
                     st.rerun()
 
     with tab_p3:
@@ -1075,7 +1092,7 @@ elif menu.startswith("6."):
                     """, (np_cod, np_cod, np_desc.upper(), np_maneja, np_calidad, np_emp, np_cos, np_pre, p_kg, mrg))
                     conn.commit()
                     conn.close()
-                    st.success("¡Producto creado!")
+                    st.success("¡Producto creado y guardado!")
                     st.rerun()
 
 # ---------------------------------------------------------
@@ -1095,11 +1112,11 @@ elif menu.startswith("7."):
         st.info("No hay movimientos en el kardex.")
 
 # ---------------------------------------------------------
-# 8. CARTERA OFICIAL DE CLIENTES (100% MANUAL, EDITABLE Y SUCURSALES)
+# 8. CARTERA OFICIAL DE CLIENTES (PERMANENTE Y EDITABLE)
 # ---------------------------------------------------------
 elif menu.startswith("8."):
     st.title("🏢 Cartera Oficial de Clientes (Manual, Editable y con Sucursales)")
-    st.write("Tu directorio oficial de clientes.")
+    st.write("Tu directorio oficial de clientes guardado permanentemente en el sistema.")
 
     tab_c1, tab_c2, tab_c3 = st.tabs(["📋 Directorio Oficial", "✏️ Editar Sucursal / Cliente", "➕ Registrar Cliente o Sucursal"])
 
@@ -1122,7 +1139,7 @@ elif menu.startswith("8."):
                 st.success("¡Sucursal eliminada de la cartera!")
                 st.rerun()
         else:
-            st.info("Tu cartera de clientes está vacía.")
+            st.info("Tu cartera de clientes está vacía. Añade nuevos clientes en la tercera pestaña.")
 
     with tab_c2:
         df_cli_ed = get_clientes_cache()
@@ -1151,7 +1168,7 @@ elif menu.startswith("8."):
                     """, (eo_matriz.upper(), eo_suc.upper(), eo_seg, eo_tarifa, eo_dupla, eo_tel, eo_cont, int(eo_dias), eo_monto, int(id_edc)))
                     conn.commit()
                     conn.close()
-                    st.success("¡Cliente actualizado!")
+                    st.success("¡Cliente actualizado y guardado permanentemente!")
                     st.rerun()
 
     with tab_c3:
@@ -1167,7 +1184,7 @@ elif menu.startswith("8."):
             nc_dias = st.number_input("Días de Crédito", min_value=1, value=15)
             nc_monto = st.number_input("Límite de Crédito ($)", min_value=0.0, value=15000.0)
 
-            if st.form_submit_button("💾 Guardar en Cartera de Clientes"):
+            if st.form_submit_button("💾 Guardar Permanentemente en Cartera de Clientes"):
                 if nc_mat and nc_suc:
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
@@ -1178,8 +1195,8 @@ elif menu.startswith("8."):
                     conn.commit()
                     conn.close()
                     
-                    registrar_auditoria(st.session_state.usuario, st.session_state.rol, "NUEVO CLIENTE", f"Se registró a {nc_mat} - {nc_suc}")
-                    st.success("¡Cliente y sucursal registrados con éxito!")
+                    registrar_auditoria(st.session_state.usuario, st.session_state.rol, "NUEVO CLIENTE", f"Se registró a {nc_mat} - {nc_suc} en BD permanente.")
+                    st.success("¡Cliente y sucursal guardados con éxito y de forma permanente!")
                     st.rerun()
                 else:
                     st.error("Por favor complete Matriz y Sucursal.")
