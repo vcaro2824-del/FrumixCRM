@@ -16,7 +16,6 @@ def get_now_vz():
 def get_today_vz():
     return datetime.now(venezuela_tz).date()
 
-# Función auxiliar para formatear fechas a DD/MM/AAAA
 def format_date_str(fecha_obj):
     if isinstance(fecha_obj, (datetime, date)):
         return fecha_obj.strftime("%d/%m/%Y")
@@ -30,7 +29,7 @@ def format_date_str(fecha_obj):
     return str(fecha_obj)
 
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B Enterprise Elite V41",
+    page_title="Frumix C.A. - ERP B2B Enterprise Elite V42",
     page_icon="🍓",
     layout="wide",
 )
@@ -48,7 +47,7 @@ threading.Thread(target=keep_alive, daemon=True).start()
 # ---------------------------------------------------------
 # RUTA PERSISTENTE DE BASE DE DATOS (GARANTIZA QUE NO SE BORRE NADA)
 # ---------------------------------------------------------
-DB_FILE_NAME = "frumix_enterprise_elite_v41.db"
+DB_FILE_NAME = "frumix_enterprise_elite_v42.db"
 
 def get_db_path():
     base_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
@@ -102,7 +101,6 @@ def init_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS cotizador_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            codigo TEXT,
             descripcion TEXT,
             calibre_sugerido TEXT,
             empaque_kg REAL,
@@ -317,7 +315,7 @@ modulos_disponibles = [
     "1. 📊 Dashboard Gerencial, P&L & Auditoría",
     "2. 📦 Inventario Flexible (Tabla 100% Editable)",
     "3. 🛒 Generador de Pedidos y Presupuestos (Manual y Formato Frumix)",
-    "4. 📄 Cotizador Pro (Historial por Cliente, Precios, Edición y Calibres)",
+    "4. 📄 Cotizador Pro (Sin Código, Historial por Cliente y Calibres)",
     "5. 📋 Registro Manual de Facturación & CxC Independiente",
     "6. 🍓 Catálogo de Productos (Calibre Opcional)",
     "7. 🔄 Kardex & Trazabilidad de Lotes (FIFO)",
@@ -333,7 +331,7 @@ modulos_disponibles = [
     "17. 📋 Historial Completo de Pedidos & Edición/Eliminación",
 ]
 
-menu = st.sidebar.radio("Módulos ERP Enterprise Elite V41:", modulos_disponibles)
+menu = st.sidebar.radio("Módulos ERP Enterprise Elite V42:", modulos_disponibles)
 
 # ---------------------------------------------------------
 # 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
@@ -393,7 +391,7 @@ elif menu.startswith("2."):
             df_editado_inv = st.data_editor(
                 df_inv,
                 use_container_width=True,
-                key="editor_inventario_general_v41",
+                key="editor_inventario_general_v42",
                 num_rows="dynamic"
             )
 
@@ -691,11 +689,11 @@ elif menu.startswith("3."):
         st.warning("No hay existencias disponibles en cámaras de frío.")
 
 # ---------------------------------------------------------
-# 4. COTIZADOR PRO (HISTORIAL POR CLIENTE, EDICIÓN Y CALIBRES - FORMATO DD/MM/AAAA)
+# 4. COTIZADOR PRO (SIN CÓDIGO, HISTORIAL POR CLIENTE, EDICIÓN Y CALIBRES)
 # ---------------------------------------------------------
 elif menu.startswith("4."):
     st.title("📄 Cotizador B2B Profesional - Historial y Gestión por Cliente")
-    st.write("Crea, edita, guarda y consulta cotizaciones específicas para cada cliente de forma permanente.")
+    st.write("Crea, edita, guarda y consulta cotizaciones específicas para cada cliente de forma permanente (Sin columna de código).")
 
     conn = sqlite3.connect(DB_NAME)
     df_cot_items = pd.read_sql("SELECT * FROM cotizador_items", conn) if "cotizador_items" in [row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()] else pd.DataFrame()
@@ -737,7 +735,6 @@ elif menu.startswith("4."):
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS cotizador_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                codigo TEXT,
                 descripcion TEXT,
                 calibre_sugerido TEXT,
                 empaque_kg REAL,
@@ -746,7 +743,7 @@ elif menu.startswith("4."):
             )
         """)
         for desc, cal_sug, emp, prec, ord_n in items_iniciales:
-            cursor.execute("INSERT INTO cotizador_items (codigo, descripcion, calibre_sugerido, empaque_kg, precio_caja, orden) VALUES (?, ?, ?, ?, ?, ?)", (f"FRU-{ord_n:02d}", desc, cal_sug, emp, prec, ord_n))
+            cursor.execute("INSERT INTO cotizador_items (descripcion, calibre_sugerido, empaque_kg, precio_caja, orden) VALUES (?, ?, ?, ?, ?)", (desc, cal_sug, emp, prec, ord_n))
         conn.commit()
         conn.close()
         
@@ -788,13 +785,13 @@ elif menu.startswith("4."):
             vig_sel = st.date_input("Validez de la cotización:", value=get_today_vz() + timedelta(days=7))
 
         st.markdown("---")
-        st.subheader("📋 Tabla de Precios, Calibres & Edición")
-        st.info("💡 Edita los calibres sugeridos o precios. Al hacer clic en **Guardar Cotización en el Sistema**, quedará almacenada en el historial de este cliente.")
+        st.subheader("📋 Tabla de Precios, Calibres & Edición (Sin Código)")
+        st.info("💡 Edita la descripción, calibres sugeridos o precios. Al hacer clic en **Guardar Cotización en el Sistema**, quedará almacenada en el historial.")
 
-        df_editor_v = df_cot_items[["id", "orden", "codigo", "descripcion", "calibre_sugerido", "empaque_kg", "precio_caja"]].sort_values(by="orden").copy()
-        df_editor_v.columns = ["ID", "ORDEN", "CÓDIGO", "DESCRIPCIÓN", "CALIBRE A MOSTRAR", "EMPAQUE/KG", "PRECIO CAJA ($)"]
+        df_editor_v = df_cot_items[["id", "orden", "descripcion", "calibre_sugerido", "empaque_kg", "precio_caja"]].sort_values(by="orden").copy()
+        df_editor_v.columns = ["ID", "ORDEN", "DESCRIPCIÓN", "CALIBRE A MOSTRAR", "EMPAQUE/KG", "PRECIO CAJA ($)"]
 
-        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra_v41", num_rows="dynamic")
+        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra_v42", num_rows="dynamic")
 
         fecha_cot_fmt = format_date_str(get_today_vz())
         validez_fmt = format_date_str(vig_sel)
@@ -809,9 +806,9 @@ elif menu.startswith("4."):
                     for _, r in df_editado_venta.iterrows():
                         cursor.execute("""
                             UPDATE cotizador_items 
-                            SET orden = ?, codigo = ?, descripcion = ?, calibre_sugerido = ?, empaque_kg = ?, precio_caja = ?
+                            SET orden = ?, descripcion = ?, calibre_sugerido = ?, empaque_kg = ?, precio_caja = ?
                             WHERE id = ?
-                        """, (int(r["ORDEN"]), str(r["CÓDIGO"]), str(r["DESCRIPCIÓN"]).upper(), str(r["CALIBRE A MOSTRAR"]), float(r["EMPAQUE/KG"]), float(r["PRECIO CAJA ($)"]), int(r["ID"])))
+                        """, (int(r["ORDEN"]), str(r["DESCRIPCIÓN"]).upper(), str(r["CALIBRE A MOSTRAR"]), float(r["EMPAQUE/KG"]), float(r["PRECIO CAJA ($)"]), int(r["ID"])))
 
                     detalle_snapshot = df_editado_venta.to_dict(orient="records")
                     cursor.execute("""
@@ -869,7 +866,6 @@ elif menu.startswith("4."):
                     <h3>Cotización Comercial Oficial & Calibres</h3>
                     <table>
                         <tr>
-                            <th>Código</th>
                             <th>Descripción</th>
                             <th>Presentación (KG)</th>
                             <th>Calibre</th>
@@ -879,7 +875,7 @@ elif menu.startswith("4."):
                 """
                 for _, r in df_editado_venta.iterrows():
                     p_kg = round(r['PRECIO CAJA ($)'] / r['EMPAQUE/KG'], 2) if r['EMPAQUE/KG'] > 0 else 0.0
-                    html_doc += f"<tr><td>{r['CÓDIGO']}</td><td>{r['DESCRIPCIÓN']}</td><td>{r['EMPAQUE/KG']}</td><td><strong>{r['CALIBRE A MOSTRAR']}</strong></td><td>${r['PRECIO CAJA ($)']:.2f}</td><td>${p_kg:.2f}</td></tr>"
+                    html_doc += f"<tr><td>{r['DESCRIPCIÓN']}</td><td>{r['EMPAQUE/KG']}</td><td><strong>{r['CALIBRE A MOSTRAR']}</strong></td><td>${r['PRECIO CAJA ($)']:.2f}</td><td>${p_kg:.2f}</td></tr>"
                     
                 html_doc += f"""
                     </table>
@@ -962,7 +958,6 @@ elif menu.startswith("4."):
                         <h3>Cotización Comercial Oficial & Calibres</h3>
                         <table>
                             <tr>
-                                <th>Código</th>
                                 <th>Descripción</th>
                                 <th>Presentación (KG)</th>
                                 <th>Calibre</th>
@@ -972,7 +967,7 @@ elif menu.startswith("4."):
                     """
                     for r in detalle_cargado:
                         p_kg = round(r['PRECIO CAJA ($)'] / r['EMPAQUE/KG'], 2) if r['EMPAQUE/KG'] > 0 else 0.0
-                        html_doc_h += f"<tr><td>{r['CÓDIGO']}</td><td>{r['DESCRIPCIÓN']}</td><td>{r['EMPAQUE/KG']}</td><td><strong>{r['CALIBRE A MOSTRAR']}</strong></td><td>${r['PRECIO CAJA ($)']:.2f}</td><td>${p_kg:.2f}</td></tr>"
+                        html_doc_h += f"<tr><td>{r['DESCRIPCIÓN']}</td><td>{r['EMPAQUE/KG']}</td><td><strong>{r['CALIBRE A MOSTRAR']}</strong></td><td>${r['PRECIO CAJA ($)']:.2f}</td><td>${p_kg:.2f}</td></tr>"
                         
                     html_doc_h += f"""
                         </table>
@@ -1192,7 +1187,7 @@ elif menu.startswith("6."):
             if st.form_submit_button("Guardar Nuevo Producto"):
                 if np_cod and np_desc:
                     p_kg = round(np_pre / np_emp, 2) if np_emp > 0 else 0.0
-                    mrg = round(((np_pre - np_cos) / np_pre * 100), 1) if np_emp > 0 else 0.0
+                    mrg = round(((np_pre - np_cos) / np_pre * 100), 1) if np_pre > 0 else 0.0
                     
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
