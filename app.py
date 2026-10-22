@@ -8,7 +8,6 @@ import time
 import urllib.request
 import os
 
-# Configuración de zona horaria de Venezuela (-4 UTC)
 venezuela_tz = timezone(timedelta(hours=-4))
 
 def get_now_vz():
@@ -18,7 +17,7 @@ def get_today_vz():
     return datetime.now(venezuela_tz).date()
 
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B Enterprise Elite V38",
+    page_title="Frumix C.A. - ERP B2B Enterprise Elite V39",
     page_icon="🍓",
     layout="wide",
 )
@@ -36,10 +35,9 @@ threading.Thread(target=keep_alive, daemon=True).start()
 # ---------------------------------------------------------
 # RUTA PERSISTENTE DE BASE DE DATOS (GARANTIZA QUE NO SE BORRE NADA)
 # ---------------------------------------------------------
-DB_FILE_NAME = "frumix_enterprise_elite_v38.db"
+DB_FILE_NAME = "frumix_enterprise_elite_v39.db"
 
 def get_db_path():
-    # Detecta el directorio local del archivo app.py
     base_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
     data_dir = os.path.join(base_dir, "data")
     if not os.path.exists(data_dir):
@@ -93,6 +91,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             codigo TEXT,
             descripcion TEXT,
+            calibre_sugerido TEXT,
             empaque_kg REAL,
             precio_caja REAL,
             orden INTEGER
@@ -310,7 +309,7 @@ modulos_disponibles = [
     "17. 📋 Historial Completo de Pedidos & Edición/Eliminación",
 ]
 
-menu = st.sidebar.radio("Módulos ERP Enterprise Elite V38:", modulos_disponibles)
+menu = st.sidebar.radio("Módulos ERP Enterprise Elite V39:", modulos_disponibles)
 
 # ---------------------------------------------------------
 # 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
@@ -353,7 +352,7 @@ if menu.startswith("1."):
         st.info("No hay registros en la bitácora de auditoría.")
 
 # ---------------------------------------------------------
-# 2. INVENTARIO FLEXIBLE (TABLA INTERACTIVA 100% EDITABLE CON GUARDADO DEDICADO)
+# 2. INVENTARIO FLEXIBLE (TABLA INTERACTIVA 100% EDITABLE)
 # ---------------------------------------------------------
 elif menu.startswith("2."):
     st.title("📦 Inventario Flexible - Tabla de Existencias 100% Editable")
@@ -370,7 +369,7 @@ elif menu.startswith("2."):
             df_editado_inv = st.data_editor(
                 df_inv,
                 use_container_width=True,
-                key="editor_inventario_general_v38",
+                key="editor_inventario_general_v39",
                 num_rows="dynamic"
             )
 
@@ -665,46 +664,45 @@ elif menu.startswith("3."):
         st.warning("No hay existencias disponibles en cámaras de frío.")
 
 # ---------------------------------------------------------
-# 4. COTIZADOR PRO (LISTA FIJA DE 26 FRUTAS, SIN CALIDAD, CALIBRES REALES)
+# 4. COTIZADOR PRO (LISTA FIJA DE 26 FRUTAS, COLUMNA DE CALIBRE EDITABLE)
 # ---------------------------------------------------------
 elif menu.startswith("4."):
-    st.title("📄 Cotizador B2B Profesional con Cuadro Editable")
-    st.write("Gestiona tu lista fija de cotización basada en la imagen oficial, ajusta el orden, precios y genera el formato imprimible con los calibres reales en cámaras.")
+    st.title("📄 Cotizador B2B Profesional con Cuadro Editable y Calibres")
+    st.write("Gestiona tu lista fija de cotización, indica el calibre específico para cada fruta, ajusta precios y genera el formato oficial.")
 
     conn = sqlite3.connect(DB_NAME)
     df_cot_items = pd.read_sql("SELECT * FROM cotizador_items", conn) if "cotizador_items" in [row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()] else pd.DataFrame()
     df_cli_cot = pd.read_sql("SELECT * FROM clientes_cotizaciones", conn)
-    df_inv_existencias = pd.read_sql("SELECT * FROM inventario WHERE stock_cajas > 0", conn)
     conn.close()
 
     if df_cot_items.empty:
         items_iniciales = [
-            ("MANZANA GALA", 19.0, 59.66, 1),
-            ("MANZANA ROJA", 19.0, 72.01, 2),
-            ("MANZANA VERDE", 19.0, 79.04, 3),
-            ("MANZANA AMARILLA (americana)", 18.0, 0.00, 4),
-            ("MANZANA PINK LADY", 18.5, 58.09, 5),
-            ("PERA VERDE", 18.0, 59.94, 6),
-            ("PERA COSCIA", 10.0, 0.00, 7),
-            ("PERA FORELLE", 9.0, 0.00, 8),
-            ("UVA RED GLOBE", 8.2, 65.02, 9),
-            ("UVA VERDE S/SEMILLA", 8.2, 50.00, 10),
-            ("UVA NEGRA S/SEMILLA", 7.3, 0.00, 11),
-            ("CIRUELA IMPORTADA", 9.0, 70.02, 12),
-            ("KIWI VERDE", 10.0, 60.00, 13),
-            ("KIWI AMARILLO", 9.0, 0.00, 14),
-            ("GRANADA", 3.8, 0.00, 15),
-            ("CEREZA", 2.5, 0.00, 16),
-            ("CEREZA", 5.0, 0.00, 17),
-            ("ARANDANOS", 0.125, 4.00, 18),
-            ("NARANJAS IMPORTADAS", 15.0, 66.00, 19),
-            ("TANGELO", 9.5, 0.00, 20),
-            ("MANDARINAS IMPORTADAS", 9.5, 55.00, 21),
-            ("POMELO", 14.5, 0.00, 22),
-            ("PITAHAYA ROJA", 1.0, 0.00, 23),
-            ("PITAHAYA AMARILLA", 1.0, 0.00, 24),
-            ("NECTARINA", 9.0, 0.00, 25),
-            ("LIMÓN AMARILLO (Importado)", 16.0, 0.00, 26)
+            ("MANZANA GALA", "125-113-88-80", 19.0, 59.66, 1),
+            ("MANZANA ROJA", "125-113-100-88-80", 19.0, 72.01, 2),
+            ("MANZANA VERDE", "113-100-88", 19.0, 79.04, 3),
+            ("MANZANA AMARILLA (americana)", "-", 18.0, 0.00, 4),
+            ("MANZANA PINK LADY", "125-113-100", 18.5, 58.09, 5),
+            ("PERA VERDE", "100", 18.0, 59.94, 6),
+            ("PERA COSCIA", "40-44", 10.0, 0.00, 7),
+            ("PERA FORELLE", "G", 9.0, 0.00, 8),
+            ("UVA RED GLOBE", "Jumbo", 8.2, 65.02, 9),
+            ("UVA VERDE S/SEMILLA", "Doble Jumbo", 8.2, 50.00, 10),
+            ("UVA NEGRA S/SEMILLA", "-", 7.3, 0.00, 11),
+            ("CIRUELA IMPORTADA", "Grande", 9.0, 70.02, 12),
+            ("KIWI VERDE", "-", 10.0, 60.00, 13),
+            ("KIWI AMARILLO", "-", 9.0, 0.00, 14),
+            ("GRANADA", "-", 3.8, 0.00, 15),
+            ("CEREZA", "-", 2.5, 0.00, 16),
+            ("CEREZA (Jumbo)", "Jumbo", 5.0, 0.00, 17),
+            ("ARANDANOS", "-", 0.125, 4.00, 18),
+            ("NARANJAS IMPORTADAS", "-", 15.0, 66.00, 19),
+            ("TANGELO", "-", 9.5, 0.00, 20),
+            ("MANDARINAS IMPORTADAS", "-", 9.5, 55.00, 21),
+            ("POMELO", "-", 14.5, 0.00, 22),
+            ("PITAHAYA ROJA", "-", 1.0, 0.00, 23),
+            ("PITAHAYA AMARILLA", "-", 1.0, 0.00, 24),
+            ("NECTARINA", "-", 9.0, 0.00, 25),
+            ("LIMÓN AMARILLO (Importado)", "-", 16.0, 0.00, 26)
         ]
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
@@ -713,13 +711,14 @@ elif menu.startswith("4."):
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 codigo TEXT,
                 descripcion TEXT,
+                calibre_sugerido TEXT,
                 empaque_kg REAL,
                 precio_caja REAL,
                 orden INTEGER
             )
         """)
-        for desc, emp, prec, ord_n in items_iniciales:
-            cursor.execute("INSERT INTO cotizador_items (codigo, descripcion, empaque_kg, precio_caja, orden) VALUES (?, ?, ?, ?, ?)", (f"FRU-{ord_n:02d}", desc, emp, prec, ord_n))
+        for desc, cal_sug, emp, prec, ord_n in items_iniciales:
+            cursor.execute("INSERT INTO cotizador_items (codigo, descripcion, calibre_sugerido, empaque_kg, precio_caja, orden) VALUES (?, ?, ?, ?, ?, ?)", (f"FRU-{ord_n:02d}", desc, cal_sug, emp, prec, ord_n))
         conn.commit()
         conn.close()
         
@@ -751,30 +750,30 @@ elif menu.startswith("4."):
     vig_sel = st.date_input("Validez de la cotización:", value=get_today_vz() + timedelta(days=7))
 
     st.markdown("---")
-    tab_cot1, tab_cot2 = st.tabs(["📋 Cuadro de Precios, Orden & Edición", "➕ Agregar Fruta Nueva a la Lista"])
+    tab_cot1, tab_cot2 = st.tabs(["📋 Cuadro de Precios, Calibres & Edición", "➕ Agregar Fruta Nueva a la Lista"])
 
     with tab_cot1:
-        st.subheader("📋 Tabla de Precios Interactiva (Editable y Ordenable)")
-        st.info("💡 Edita los precios por caja o ajusta el número de orden para cambiar cómo se listarán las frutas. Haz clic en 'Guardar Cambios y Orden'.")
+        st.subheader("📋 Tabla de Precios e Indicación de Calibres (Editable)")
+        st.info("💡 Edita directamente los calibres sugeridos, precios por caja o el orden de la lista. Haz clic en 'Guardar Cambios'.")
 
-        df_editor_v = df_cot_items[["id", "orden", "codigo", "descripcion", "empaque_kg", "precio_caja"]].sort_values(by="orden").copy()
-        df_editor_v.columns = ["ID", "ORDEN", "CÓDIGO", "DESCRIPCIÓN", "EMPAQUE/KG", "PRECIO CAJA ($)"]
+        df_editor_v = df_cot_items[["id", "orden", "codigo", "descripcion", "calibre_sugerido", "empaque_kg", "precio_caja"]].sort_values(by="orden").copy()
+        df_editor_v.columns = ["ID", "ORDEN", "CÓDIGO", "DESCRIPCIÓN", "CALIBRE A MOSTRAR", "EMPAQUE/KG", "PRECIO CAJA ($)"]
 
-        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra_v38", num_rows="dynamic")
+        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra_v39", num_rows="dynamic")
 
-        if st.button("💾 Guardar Cambios, Precios y Orden de Frutas"):
+        if st.button("💾 Guardar Cambios, Calibres y Precios"):
             try:
                 conn = sqlite3.connect(DB_NAME)
                 cursor = conn.cursor()
                 for _, r in df_editado_venta.iterrows():
                     cursor.execute("""
                         UPDATE cotizador_items 
-                        SET orden = ?, codigo = ?, descripcion = ?, empaque_kg = ?, precio_caja = ?
+                        SET orden = ?, codigo = ?, descripcion = ?, calibre_sugerido = ?, empaque_kg = ?, precio_caja = ?
                         WHERE id = ?
-                    """, (int(r["ORDEN"]), str(r["CÓDIGO"]), str(r["DESCRIPCIÓN"]).upper(), float(r["EMPAQUE/KG"]), float(r["PRECIO CAJA ($)"]), int(r["ID"])))
+                    """, (int(r["ORDEN"]), str(r["CÓDIGO"]), str(r["DESCRIPCIÓN"]).upper(), str(r["CALIBRE A MOSTRAR"]), float(r["EMPAQUE/KG"]), float(r["PRECIO CAJA ($)"]), int(r["ID"])))
                 conn.commit()
                 conn.close()
-                st.success("¡Lista de cotización guardada y ordenada permanentemente!")
+                st.success("¡Lista de cotización guardada permanentemente con sus calibres!")
                 st.rerun()
             except Exception as e:
                 st.error(f"Error al actualizar: {e}")
@@ -796,6 +795,7 @@ elif menu.startswith("4."):
             st.subheader("Añadir Nueva Fruta a la Lista Fija de Cotización")
             nc_cod = st.text_input("Código de Fruta (Ej. FRU-27)")
             nc_desc = st.text_input("Descripción de la Fruta")
+            nc_cal_sug = st.text_input("Calibre a Mostrar (Ej. 100, Jumbo, etc.)", value="-")
             nc_emp = st.number_input("Empaque en Kg por Caja", min_value=0.01, value=19.0)
             nc_prec = st.number_input("Precio por Caja ($)", min_value=0.0, value=60.0)
             nc_ord = st.number_input("Orden en la Lista", min_value=1, value=len(df_cot_items)+1)
@@ -805,17 +805,17 @@ elif menu.startswith("4."):
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
                     cursor.execute("""
-                        INSERT INTO cotizador_items (codigo, descripcion, empaque_kg, precio_caja, orden)
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (nc_cod.upper(), nc_desc.upper(), nc_emp, nc_prec, int(nc_ord)))
+                        INSERT INTO cotizador_items (codigo, descripcion, calibre_sugerido, empaque_kg, precio_caja, orden)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (nc_cod.upper(), nc_desc.upper(), nc_cal_sug.upper(), nc_emp, nc_prec, int(nc_ord)))
                     conn.commit()
                     conn.close()
                     st.success("¡Fruta añadida y guardada en la cotización!")
                     st.rerun()
 
     st.markdown("---")
-    st.subheader("📄 Generar Formato Imprimible con Calibres Reales en Cámaras")
-    if st.button("📥 Generar Documento HTML de Cotización Oficial"):
+    st.subheader("📄 Generar Formato Imprimible con Calibración Específica")
+    if st.button("📥 Descargar Documento HTML de Cotización Oficial"):
         logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
         
         df_final_cot = df_cot_items.sort_values(by="orden").copy()
@@ -856,28 +856,21 @@ elif menu.startswith("4."):
                 Nuestra alianza con los mejores productos de frutas frescas a nivel mundial garantiza la calidad y buen servicio que nos caracteriza.
             </div>
 
-            <h3>Cotización Comercial Oficial & Calibres en Existencia</h3>
+            <h3>Cotización Comercial Oficial & Calibres</h3>
             <table>
                 <tr>
                     <th>Código</th>
                     <th>Descripción</th>
                     <th>Presentación (KG)</th>
-                    <th>Calibres Reales (Cámaras)</th>
-                    <th>Precio Caja ($)</th>
-                    <th>Precio por KG ($)</th>
+                    <th>Calibre</th>
+                    <th>Precio $ X Caja</th>
+                    <th>Precio $ X Kilo</th>
                 </tr>
         """
         
         for _, r in df_final_cot.iterrows():
-            desc_fruta = str(r['descripcion']).upper()
-            if not df_inv_existencias.empty:
-                calibres_encontrados = df_inv_existencias[df_inv_existencias['producto'].str.upper() == desc_fruta]['calibre'].unique().tolist()
-                calibres_str = ", ".join([str(c) for c in calibres_encontrados if c and c != "N/A"]) if calibres_encontrados else "Disponible / Estándar"
-            else:
-                calibres_str = "Sujeto a confirmación"
-                
             p_kg = round(r['precio_caja'] / r['empaque_kg'], 2) if r['empaque_kg'] > 0 else 0.0
-            html_doc += f"<tr><td>{r['codigo']}</td><td>{r['descripcion']}</td><td>{r['empaque_kg']}</td><td><strong>{calibres_str}</strong></td><td>${r['precio_caja']:.2f}</td><td>${p_kg:.2f}</td></tr>"
+            html_doc += f"<tr><td>{r['codigo']}</td><td>{r['descripcion']}</td><td>{r['empaque_kg']}</td><td><strong>{r['calibre_sugerido']}</strong></td><td>${r['precio_caja']:.2f}</td><td>${p_kg:.2f}</td></tr>"
             
         html_doc += f"""
             </table>
@@ -895,9 +888,9 @@ elif menu.startswith("4."):
         </html>
         """
         st.download_button(
-            label="📥 Descargar Cotización Oficial con Calibres Reales en HTML",
+            label="📥 Descargar Cotización Oficial con Columna de Calibre en HTML",
             data=html_doc,
-            file_name=f"Cotizacion_Calibres_Reales_Frumix_{get_today_vz()}.html",
+            file_name=f"Cotizacion_Calibres_Frumix_{get_today_vz()}.html",
             mime="text/html"
         )
 
@@ -1139,7 +1132,7 @@ elif menu.startswith("8."):
                 st.success("¡Sucursal eliminada de la cartera!")
                 st.rerun()
         else:
-            st.info("Tu cartera de clientes está vacía. Añade nuevos clientes en la tercera pestaña.")
+            st.info("Tu cartera de clientes está vacía.")
 
     with tab_c2:
         df_cli_ed = get_clientes_cache()
