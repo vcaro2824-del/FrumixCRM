@@ -17,7 +17,7 @@ def get_today_vz():
     return datetime.now(venezuela_tz).date()
 
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B Enterprise Elite V39",
+    page_title="Frumix C.A. - ERP B2B Enterprise Elite V40",
     page_icon="🍓",
     layout="wide",
 )
@@ -35,7 +35,7 @@ threading.Thread(target=keep_alive, daemon=True).start()
 # ---------------------------------------------------------
 # RUTA PERSISTENTE DE BASE DE DATOS (GARANTIZA QUE NO SE BORRE NADA)
 # ---------------------------------------------------------
-DB_FILE_NAME = "frumix_enterprise_elite_v39.db"
+DB_FILE_NAME = "frumix_enterprise_elite_v40.db"
 
 def get_db_path():
     base_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
@@ -95,6 +95,17 @@ def init_db():
             empaque_kg REAL,
             precio_caja REAL,
             orden INTEGER
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS cotizaciones_guardadas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nro_cotizacion TEXT,
+            cliente TEXT,
+            fecha_cotizacion TEXT,
+            validez TEXT,
+            detalle_json TEXT
         )
     """)
     
@@ -293,7 +304,7 @@ modulos_disponibles = [
     "1. 📊 Dashboard Gerencial, P&L & Auditoría",
     "2. 📦 Inventario Flexible (Tabla 100% Editable)",
     "3. 🛒 Generador de Pedidos y Presupuestos (Manual y Formato Frumix)",
-    "4. 📄 Cotizador Pro (Lista Fija, Orden, Edición y Calibres en Impresión)",
+    "4. 📄 Cotizador Pro (Historial por Cliente, Precios, Edición y Calibres)",
     "5. 📋 Registro Manual de Facturación & CxC Independiente",
     "6. 🍓 Catálogo de Productos (Calibre Opcional)",
     "7. 🔄 Kardex & Trazabilidad de Lotes (FIFO)",
@@ -309,7 +320,7 @@ modulos_disponibles = [
     "17. 📋 Historial Completo de Pedidos & Edición/Eliminación",
 ]
 
-menu = st.sidebar.radio("Módulos ERP Enterprise Elite V39:", modulos_disponibles)
+menu = st.sidebar.radio("Módulos ERP Enterprise Elite V40:", modulos_disponibles)
 
 # ---------------------------------------------------------
 # 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
@@ -369,7 +380,7 @@ elif menu.startswith("2."):
             df_editado_inv = st.data_editor(
                 df_inv,
                 use_container_width=True,
-                key="editor_inventario_general_v39",
+                key="editor_inventario_general_v40",
                 num_rows="dynamic"
             )
 
@@ -664,15 +675,16 @@ elif menu.startswith("3."):
         st.warning("No hay existencias disponibles en cámaras de frío.")
 
 # ---------------------------------------------------------
-# 4. COTIZADOR PRO (LISTA FIJA DE 26 FRUTAS, COLUMNA DE CALIBRE EDITABLE)
+# 4. COTIZADOR PRO (HISTORIAL POR CLIENTE, EDICIÓN Y CALIBRES)
 # ---------------------------------------------------------
 elif menu.startswith("4."):
-    st.title("📄 Cotizador B2B Profesional con Cuadro Editable y Calibres")
-    st.write("Gestiona tu lista fija de cotización, indica el calibre específico para cada fruta, ajusta precios y genera el formato oficial.")
+    st.title("📄 Cotizador B2B Profesional - Historial y Gestión por Cliente")
+    st.write("Crea, edita, guarda y consulta cotizaciones específicas para cada cliente de forma permanente.")
 
     conn = sqlite3.connect(DB_NAME)
     df_cot_items = pd.read_sql("SELECT * FROM cotizador_items", conn) if "cotizador_items" in [row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()] else pd.DataFrame()
     df_cli_cot = pd.read_sql("SELECT * FROM clientes_cotizaciones", conn)
+    df_cot_guardadas = pd.read_sql("SELECT * FROM cotizaciones_guardadas", conn)
     conn.close()
 
     if df_cot_items.empty:
@@ -726,8 +738,11 @@ elif menu.startswith("4."):
         df_cot_items = pd.read_sql("SELECT * FROM cotizador_items", conn)
         conn.close()
 
-    with st.expander("➕ Gestionar Destinatarios para Cotizaciones"):
+    tab_cot_gen, tab_cot_hist, tab_cot_dest = st.tabs(["📄 Editor y Creador de Cotización", "📂 Historial de Cotizaciones Guardadas", "👥 Gestionar Destinatarios"])
+
+    with tab_cot_dest:
         with st.form("form_add_cot_cli"):
+            st.subheader("Registrar Cliente / Destinatario Frecuente")
             nombre_cot = st.text_input("Nombre del Cliente, Prospecto o Asesor Solicitante")
             empresa_cot = st.text_input("Empresa o Referencia")
             obs_cot = st.text_input("Observación")
@@ -743,156 +758,239 @@ elif menu.startswith("4."):
 
     if not df_cli_cot.empty:
         lista_dest_cot = (df_cli_cot["nombre_cliente_o_asesor"] + " (" + df_cli_cot["empresa"] + ")").tolist()
-        dest_sel = st.selectbox("Seleccionar Destinatario de la Cotización", lista_dest_cot)
     else:
-        dest_sel = "Cliente General / Mostrador"
+        lista_dest_cot = ["Cliente General / Mostrador"]
 
-    vig_sel = st.date_input("Validez de la cotización:", value=get_today_vz() + timedelta(days=7))
+    with tab_cot_gen:
+        st.subheader("📝 Configuración de la Cotización Actual")
+        c_cg1, c_cg2, c_cg3 = st.columns(3)
+        with c_cg1:
+            nro_cot_input = st.text_input("Número de Cotización", value=f"COT-{get_now_vz().strftime('%Y%m%d')}-01")
+        with c_cg2:
+            dest_sel = st.selectbox("Seleccionar Destinatario / Cliente", lista_dest_cot)
+        with c_cg3:
+            vig_sel = st.date_input("Validez de la cotización:", value=get_today_vz() + timedelta(days=7))
 
-    st.markdown("---")
-    tab_cot1, tab_cot2 = st.tabs(["📋 Cuadro de Precios, Calibres & Edición", "➕ Agregar Fruta Nueva a la Lista"])
-
-    with tab_cot1:
-        st.subheader("📋 Tabla de Precios e Indicación de Calibres (Editable)")
-        st.info("💡 Edita directamente los calibres sugeridos, precios por caja o el orden de la lista. Haz clic en 'Guardar Cambios'.")
+        st.markdown("---")
+        st.subheader("📋 Tabla de Precios, Calibres & Edición")
+        st.info("💡 Edita los calibres sugeridos o precios. Al hacer clic en **Guardar Cotización en el Sistema**, quedará almacenada en el historial de este cliente.")
 
         df_editor_v = df_cot_items[["id", "orden", "codigo", "descripcion", "calibre_sugerido", "empaque_kg", "precio_caja"]].sort_values(by="orden").copy()
         df_editor_v.columns = ["ID", "ORDEN", "CÓDIGO", "DESCRIPCIÓN", "CALIBRE A MOSTRAR", "EMPAQUE/KG", "PRECIO CAJA ($)"]
 
-        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra_v39", num_rows="dynamic")
+        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra_v40", num_rows="dynamic")
 
-        if st.button("💾 Guardar Cambios, Calibres y Precios"):
-            try:
-                conn = sqlite3.connect(DB_NAME)
-                cursor = conn.cursor()
-                for _, r in df_editado_venta.iterrows():
-                    cursor.execute("""
-                        UPDATE cotizador_items 
-                        SET orden = ?, codigo = ?, descripcion = ?, calibre_sugerido = ?, empaque_kg = ?, precio_caja = ?
-                        WHERE id = ?
-                    """, (int(r["ORDEN"]), str(r["CÓDIGO"]), str(r["DESCRIPCIÓN"]).upper(), str(r["CALIBRE A MOSTRAR"]), float(r["EMPAQUE/KG"]), float(r["PRECIO CAJA ($)"]), int(r["ID"])))
-                conn.commit()
-                conn.close()
-                st.success("¡Lista de cotización guardada permanentemente con sus calibres!")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error al actualizar: {e}")
-
-        st.markdown("---")
-        st.subheader("🗑️ Eliminar Fruta de la Cotización")
-        id_del_cot = st.selectbox("Seleccione ID de Fruta a Eliminar de la Cotización:", df_cot_items["id"].tolist(), key="del_cot_item_sel")
-        if st.button("🗑️ Confirmar Eliminación de Fruta"):
-            conn = sqlite3.connect(DB_NAME)
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM cotizador_items WHERE id = ?", (int(id_del_cot),))
-            conn.commit()
-            conn.close()
-            st.success("¡Fruta eliminada de la cotización!")
-            st.rerun()
-
-    with tab_cot2:
-        with st.form("form_nueva_fruta_cotizacion"):
-            st.subheader("Añadir Nueva Fruta a la Lista Fija de Cotización")
-            nc_cod = st.text_input("Código de Fruta (Ej. FRU-27)")
-            nc_desc = st.text_input("Descripción de la Fruta")
-            nc_cal_sug = st.text_input("Calibre a Mostrar (Ej. 100, Jumbo, etc.)", value="-")
-            nc_emp = st.number_input("Empaque en Kg por Caja", min_value=0.01, value=19.0)
-            nc_prec = st.number_input("Precio por Caja ($)", min_value=0.0, value=60.0)
-            nc_ord = st.number_input("Orden en la Lista", min_value=1, value=len(df_cot_items)+1)
-
-            if st.form_submit_button("💾 Añadir a la Cotización"):
-                if nc_cod and nc_desc:
+        c_bt1, c_bt2 = st.columns(2)
+        with c_bt1:
+            if st.button("💾 Guardar Cotización en el Sistema (Permanente)"):
+                try:
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
+                    
+                    # Guardamos la tabla maestra actual
+                    for _, r in df_editado_venta.iterrows():
+                        cursor.execute("""
+                            UPDATE cotizador_items 
+                            SET orden = ?, codigo = ?, descripcion = ?, calibre_sugerido = ?, empaque_kg = ?, precio_caja = ?
+                            WHERE id = ?
+                        """, (int(r["ORDEN"]), str(r["CÓDIGO"]), str(r["DESCRIPCIÓN"]).upper(), str(r["CALIBRE A MOSTRAR"]), float(r["EMPAQUE/KG"]), float(r["PRECIO CAJA ($)"]), int(r["ID"])))
+
+                    # Guardamos el respaldo histórico de esta cotización específica para el cliente
+                    detalle_snapshot = df_editado_venta.to_dict(orient="records")
                     cursor.execute("""
-                        INSERT INTO cotizador_items (codigo, descripcion, calibre_sugerido, empaque_kg, precio_caja, orden)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, (nc_cod.upper(), nc_desc.upper(), nc_cal_sug.upper(), nc_emp, nc_prec, int(nc_ord)))
+                        INSERT INTO cotizaciones_guardadas (nro_cotizacion, cliente, fecha_cotizacion, validez, detalle_json)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (nro_cot_input.upper(), dest_sel, str(get_today_vz()), str(vig_sel), json.dumps(detalle_snapshot)))
+
                     conn.commit()
                     conn.close()
-                    st.success("¡Fruta añadida y guardada en la cotización!")
+                    st.success(f"¡Cotización {nro_cot_input} guardada exitosamente en el historial del cliente!")
                     st.rerun()
+                except Exception as e:
+                    st.error(f"Error al guardar: {e}")
 
-    st.markdown("---")
-    st.subheader("📄 Generar Formato Imprimible con Calibración Específica")
-    if st.button("📥 Descargar Documento HTML de Cotización Oficial"):
-        logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
-        
-        df_final_cot = df_cot_items.sort_values(by="orden").copy()
-        
-        html_doc = f"""
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>Cotización Oficial - Frumix C.A.</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; font-size: 12px; margin: 30px; color: #111; text-align: left; }}
-                .header {{ display: flex; justify-content: space-between; border-bottom: 3px solid #6B8E23; padding-bottom: 15px; align-items: center; text-align: left; }}
-                .logo {{ max-height: 80px; width: auto; }}
-                .intro-text {{ margin-top: 22px; font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #222; text-align: left; }}
-                h3 {{ font-family: Arial, sans-serif; font-size: 14px; text-align: left; margin-top: 25px; }}
-                table {{ width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; }}
-                th, td {{ border: 1px solid #bbb; padding: 10px 12px; text-align: left; font-family: Arial, sans-serif; font-size: 12px; }}
-                th {{ background-color: #f2f2f2; font-weight: bold; text-align: left; }}
-                p {{ font-family: Arial, sans-serif; font-size: 12px; text-align: left; }}
-                .signature-container {{ margin-top: 35px; width: 100%; text-align: center; }}
-                .signature {{ font-family: Arial, sans-serif; font-size: 12px; font-weight: bold; color: #111; display: inline-block; text-align: center; line-height: 1.5; }}
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <div>
-                    <img src="{logo_url}" class="logo" alt="Logo Frumix C.A.">
-                    <div style="font-size: 15px; color: #333; margin-top: 5px; font-weight: bold;">RIF: J-40985632-1 | Caracas, Venezuela</div>
-                </div>
-                <div style="text-align: right; font-size: 12px;">
-                    <strong>Fecha:</strong> {get_today_vz()}<br>
-                    <strong>Destinatario:</strong> {dest_sel}
-                </div>
-            </div>
-            
-            <div class="intro-text">
-                A continuación encontrará nuestra lista oficial de precios y los calibres disponibles actualmente en cámaras de frío.<br>
-                Nuestra alianza con los mejores productos de frutas frescas a nivel mundial garantiza la calidad y buen servicio que nos caracteriza.
-            </div>
+        with c_bt2:
+            # Botón de Descarga HTML directa
+            if st.button("📥 Generar Documento HTML de la Cotización"):
+                logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
+                html_doc = f"""
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Cotización {nro_cot_input} - Frumix C.A.</title>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; font-size: 12px; margin: 30px; color: #111; text-align: left; }}
+                        .header {{ display: flex; justify-content: space-between; border-bottom: 3px solid #6B8E23; padding-bottom: 15px; align-items: center; text-align: left; }}
+                        .logo {{ max-height: 80px; width: auto; }}
+                        .intro-text {{ margin-top: 22px; font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #222; text-align: left; }}
+                        h3 {{ font-family: Arial, sans-serif; font-size: 14px; text-align: left; margin-top: 25px; }}
+                        table {{ width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; }}
+                        th, td {{ border: 1px solid #bbb; padding: 10px 12px; text-align: left; font-family: Arial, sans-serif; font-size: 12px; }}
+                        th {{ background-color: #f2f2f2; font-weight: bold; text-align: left; }}
+                        p {{ font-family: Arial, sans-serif; font-size: 12px; text-align: left; }}
+                        .signature-container {{ margin-top: 35px; width: 100%; text-align: center; }}
+                        .signature {{ font-family: Arial, sans-serif; font-size: 12px; font-weight: bold; color: #111; display: inline-block; text-align: center; line-height: 1.5; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <div>
+                            <img src="{logo_url}" class="logo" alt="Logo Frumix C.A.">
+                            <div style="font-size: 15px; color: #333; margin-top: 5px; font-weight: bold;">RIF: J-40985632-1 | Caracas, Venezuela</div>
+                        </div>
+                        <div style="text-align: right; font-size: 12px;">
+                            <strong>Cotización:</strong> {nro_cot_input}<br>
+                            <strong>Fecha:</strong> {get_today_vz()}<br>
+                            <strong>Destinatario:</strong> {dest_sel}
+                        </div>
+                    </div>
+                    
+                    <div class="intro-text">
+                        A continuación encontrará nuestra lista oficial de precios y los calibres disponibles actualmente en cámaras de frío.<br>
+                        Nuestra alianza con los mejores productos de frutas frescas a nivel mundial garantiza la calidad y buen servicio que nos caracteriza.
+                    </div>
 
-            <h3>Cotización Comercial Oficial & Calibres</h3>
-            <table>
-                <tr>
-                    <th>Código</th>
-                    <th>Descripción</th>
-                    <th>Presentación (KG)</th>
-                    <th>Calibre</th>
-                    <th>Precio $ X Caja</th>
-                    <th>Precio $ X Kilo</th>
-                </tr>
-        """
-        
-        for _, r in df_final_cot.iterrows():
-            p_kg = round(r['precio_caja'] / r['empaque_kg'], 2) if r['empaque_kg'] > 0 else 0.0
-            html_doc += f"<tr><td>{r['codigo']}</td><td>{r['descripcion']}</td><td>{r['empaque_kg']}</td><td><strong>{r['calibre_sugerido']}</strong></td><td>${r['precio_caja']:.2f}</td><td>${p_kg:.2f}</td></tr>"
+                    <h3>Cotización Comercial Oficial & Calibres</h3>
+                    <table>
+                        <tr>
+                            <th>Código</th>
+                            <th>Descripción</th>
+                            <th>Presentación (KG)</th>
+                            <th>Calibre</th>
+                            <th>Precio $ X Caja</th>
+                            <th>Precio $ X Kilo</th>
+                        </tr>
+                """
+                for _, r in df_editado_venta.iterrows():
+                    p_kg = round(r['PRECIO CAJA ($)'] / r['EMPAQUE/KG'], 2) if r['EMPAQUE/KG'] > 0 else 0.0
+                    html_doc += f"<tr><td>{r['CÓDIGO']}</td><td>{r['DESCRIPCIÓN']}</td><td>{r['EMPAQUE/KG']}</td><td><strong>{r['CALIBRE A MOSTRAR']}</strong></td><td>${r['PRECIO CAJA ($)']:.2f}</td><td>${p_kg:.2f}</td></tr>"
+                    
+                html_doc += f"""
+                    </table>
+                    <br>
+                    <p><strong>Condiciones Comerciales:</strong> Sujeto a disponibilidad en cámaras de frío. Validez de precios hasta {vig_sel}.</p>
+                    
+                    <div class="signature-container">
+                        <div class="signature">
+                            Atentamente;<br>
+                            Gcia. De Ventas<br>
+                            FRUMIX C.A.
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """
+                st.download_button(
+                    label="📥 Descargar Archivo HTML de Cotización",
+                    data=html_doc,
+                    file_name=f"Cotizacion_{nro_cot_input}.html",
+                    mime="text/html"
+                )
+
+    with tab_cot_hist:
+        st.subheader("📂 Historial de Cotizaciones Guardadas por Cliente")
+        if not df_cot_guardadas.empty:
+            st.dataframe(df_cot_guardadas[["id", "nro_cotizacion", "cliente", "fecha_cotizacion", "validez"]], use_container_width=True)
             
-        html_doc += f"""
-            </table>
-            <br>
-            <p><strong>Condiciones Comerciales:</strong> Sujeto a disponibilidad en cámaras de frío. Validez de precios hasta {vig_sel}.</p>
+            st.markdown("---")
+            st.subheader("🔍 Consultar, Descargar o Eliminar Cotización Guardada")
+            id_cot_sel = st.selectbox("Seleccione ID de la Cotización Guardada:", df_cot_guardadas["id"].tolist(), key="sel_hist_cot")
+            row_cot_h = df_cot_guardadas[df_cot_guardadas["id"] == id_cot_sel].iloc[0]
             
-            <div class="signature-container">
-                <div class="signature">
-                    Atentamente;<br>
-                    Gcia. De Ventas<br>
-                    FRUMIX C.A.
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        st.download_button(
-            label="📥 Descargar Cotización Oficial con Columna de Calibre en HTML",
-            data=html_doc,
-            file_name=f"Cotizacion_Calibres_Frumix_{get_today_vz()}.html",
-            mime="text/html"
-        )
+            st.info(f"Mostrando cotización **{row_cot_h['nro_cotizacion']}** para el cliente **{row_cot_h['cliente']}** (Fecha: {row_cot_h['fecha_cotizacion']})")
+            
+            detalle_cargado = json.loads(row_cot_h["detalle_json"])
+            df_hist_view = pd.DataFrame(detalle_cargado)
+            st.dataframe(df_hist_view, use_container_width=True)
+
+            c_h1, c_h2 = st.columns(2)
+            with c_h1:
+                if st.button("📥 Volver a Descargar esta Cotización en HTML"):
+                    logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
+                    html_doc_h = f"""
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <title>Cotización {row_cot_h['nro_cotizacion']} - Frumix C.A.</title>
+                        <style>
+                            body {{ font-family: Arial, sans-serif; font-size: 12px; margin: 30px; color: #111; text-align: left; }}
+                            .header {{ display: flex; justify-content: space-between; border-bottom: 3px solid #6B8E23; padding-bottom: 15px; align-items: center; text-align: left; }}
+                            .logo {{ max-height: 80px; width: auto; }}
+                            .intro-text {{ margin-top: 22px; font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #222; text-align: left; }}
+                            h3 {{ font-family: Arial, sans-serif; font-size: 14px; text-align: left; margin-top: 25px; }}
+                            table {{ width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; }}
+                            th, td {{ border: 1px solid #bbb; padding: 10px 12px; text-align: left; font-family: Arial, sans-serif; font-size: 12px; }}
+                            th {{ background-color: #f2f2f2; font-weight: bold; text-align: left; }}
+                            p {{ font-family: Arial, sans-serif; font-size: 12px; text-align: left; }}
+                            .signature-container {{ margin-top: 35px; width: 100%; text-align: center; }}
+                            .signature {{ font-family: Arial, sans-serif; font-size: 12px; font-weight: bold; color: #111; display: inline-block; text-align: center; line-height: 1.5; }}
+                        </style>
+                    </head>
+                    <body>
+                        <div class="header">
+                            <div>
+                                <img src="{logo_url}" class="logo" alt="Logo Frumix C.A.">
+                                <div style="font-size: 15px; color: #333; margin-top: 5px; font-weight: bold;">RIF: J-40985632-1 | Caracas, Venezuela</div>
+                            </div>
+                            <div style="text-align: right; font-size: 12px;">
+                                <strong>Cotización:</strong> {row_cot_h['nro_cotizacion']}<br>
+                                <strong>Fecha:</strong> {row_cot_h['fecha_cotizacion']}<br>
+                                <strong>Destinatario:</strong> {row_cot_h['cliente']}
+                            </div>
+                        </div>
+                        
+                        <div class="intro-text">
+                            A continuación encontrará nuestra lista oficial de precios y los calibres disponibles actualmente en cámaras de frío.
+                        </div>
+
+                        <h3>Cotización Comercial Oficial & Calibres</h3>
+                        <table>
+                            <tr>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Presentación (KG)</th>
+                                <th>Calibre</th>
+                                <th>Precio $ X Caja</th>
+                                <th>Precio $ X Kilo</th>
+                            </tr>
+                    """
+                    for r in detalle_cargado:
+                        p_kg = round(r['PRECIO CAJA ($)'] / r['EMPAQUE/KG'], 2) if r['EMPAQUE/KG'] > 0 else 0.0
+                        html_doc_h += f"<tr><td>{r['CÓDIGO']}</td><td>{r['DESCRIPCIÓN']}</td><td>{r['EMPAQUE/KG']}</td><td><strong>{r['CALIBRE A MOSTRAR']}</strong></td><td>${r['PRECIO CAJA ($)']:.2f}</td><td>${p_kg:.2f}</td></tr>"
+                        
+                    html_doc_h += f"""
+                        </table>
+                        <br>
+                        <p><strong>Condiciones Comerciales:</strong> Sujeto a disponibilidad en cámaras de frío. Validez hasta {row_cot_h['validez']}.</p>
+                        <div class="signature-container">
+                            <div class="signature">
+                                Atentamente;<br>
+                                Gcia. De Ventas<br>
+                                FRUMIX C.A.
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                    """
+                    st.download_button(
+                        label="📥 Descargar HTML Histórico",
+                        data=html_doc_h,
+                        file_name=f"Cotizacion_{row_cot_h['nro_cotizacion']}.html",
+                        mime="text/html",
+                        key="btn_dl_hist"
+                    )
+
+            with c_h2:
+                if st.button("🗑️ Eliminar esta Cotización Guardada"):
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM cotizaciones_guardadas WHERE id = ?", (int(id_cot_sel),))
+                    conn.commit()
+                    conn.close()
+                    st.success("¡Cotización eliminada del historial!")
+                    st.rerun()
+        else:
+            st.info("No hay cotizaciones guardadas en el historial todavía. Crea una y guárdala desde la pestaña 'Editor y Creador de Cotización'.")
 
 # ---------------------------------------------------------
 # 5. REGISTRO MANUAL DE FACTURACIÓN & CXC
