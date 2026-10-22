@@ -16,8 +16,21 @@ def get_now_vz():
 def get_today_vz():
     return datetime.now(venezuela_tz).date()
 
+# Función auxiliar para formatear fechas a DD/MM/AAAA
+def format_date_str(fecha_obj):
+    if isinstance(fecha_obj, (datetime, date)):
+        return fecha_obj.strftime("%d/%m/%Y")
+    elif isinstance(fecha_obj, str) and "-" in fecha_obj:
+        try:
+            partes = fecha_obj.split("-")
+            if len(partes) == 3:
+                return f"{partes[2]}/{partes[1]}/{partes[0]}"
+        except:
+            pass
+    return str(fecha_obj)
+
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B Enterprise Elite V40",
+    page_title="Frumix C.A. - ERP B2B Enterprise Elite V41",
     page_icon="🍓",
     layout="wide",
 )
@@ -35,7 +48,7 @@ threading.Thread(target=keep_alive, daemon=True).start()
 # ---------------------------------------------------------
 # RUTA PERSISTENTE DE BASE DE DATOS (GARANTIZA QUE NO SE BORRE NADA)
 # ---------------------------------------------------------
-DB_FILE_NAME = "frumix_enterprise_elite_v40.db"
+DB_FILE_NAME = "frumix_enterprise_elite_v41.db"
 
 def get_db_path():
     base_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
@@ -250,7 +263,7 @@ def registrar_auditoria(usuario, rol, accion, detalles):
     try:
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
-        hora_vz = get_now_vz().strftime("%Y-%m-%d %H:%M:%S")
+        hora_vz = get_now_vz().strftime("%d/%m/%Y %H:%M:%S")
         cursor.execute("""
             INSERT INTO bitacora_auditoria (usuario, rol, accion, detalles, fecha_hora)
             VALUES (?, ?, ?, ?, ?)
@@ -320,7 +333,7 @@ modulos_disponibles = [
     "17. 📋 Historial Completo de Pedidos & Edición/Eliminación",
 ]
 
-menu = st.sidebar.radio("Módulos ERP Enterprise Elite V40:", modulos_disponibles)
+menu = st.sidebar.radio("Módulos ERP Enterprise Elite V41:", modulos_disponibles)
 
 # ---------------------------------------------------------
 # 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
@@ -380,7 +393,7 @@ elif menu.startswith("2."):
             df_editado_inv = st.data_editor(
                 df_inv,
                 use_container_width=True,
-                key="editor_inventario_general_v40",
+                key="editor_inventario_general_v41",
                 num_rows="dynamic"
             )
 
@@ -400,7 +413,7 @@ elif menu.startswith("2."):
                             str(row["calibre"]).upper(),
                             float(row["stock_cajas"]),
                             float(row["costo_unitario_caja"]),
-                            str(row["fecha_ingreso"]),
+                            format_date_str(row["fecha_ingreso"]),
                             int(row["id"])
                         ))
                     
@@ -453,16 +466,17 @@ elif menu.startswith("2."):
                         conn = sqlite3.connect(DB_NAME)
                         cursor = conn.cursor()
                         calibre_clean = calibre_ingresado.strip().upper()
+                        fecha_f = format_date_str(fecha_ing)
                         
                         cursor.execute("""
                             INSERT INTO inventario (lote, producto, calibre, stock_cajas, costo_unitario_caja, fecha_ingreso)
                             VALUES (?, ?, ?, ?, ?, ?)
-                        """, (lote_num.upper(), fruta_sel, calibre_clean, cajas_ingreso, costo_caja, str(fecha_ing)))
+                        """, (lote_num.upper(), fruta_sel, calibre_clean, cajas_ingreso, costo_caja, fecha_f))
 
                         cursor.execute("""
                             INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
                             VALUES (?, ?, ?, 'ENTRADA', ?, 'Carga inicial a cámaras', ?, ?)
-                        """, (lote_num.upper(), fruta_sel, calibre_clean, cajas_ingreso, str(fecha_ing), st.session_state.rol))
+                        """, (lote_num.upper(), fruta_sel, calibre_clean, cajas_ingreso, fecha_f, st.session_state.rol))
 
                         conn.commit()
                         conn.close()
@@ -571,11 +585,12 @@ elif menu.startswith("3."):
 
                     costo_total_ped = sum(item["cajas"] * item["costo_unitario"] for item in st.session_state.carrito_pedido)
                     ganancia_ped = monto_total_ped - costo_total_ped
+                    fecha_p_fmt = format_date_str(fecha_presupuesto)
 
                     cursor.execute("""
                         INSERT INTO pedidos (nro_pedido, cliente, sucursal, realizado_por, atendido_por, recibido_por, datos_importantes, fecha_pedido, monto_total, costo_total, ganancia_estimada, estatus_despacho, detalle_json)
                         VALUES (?, ?, ?, ?, ?, ?, 'Presupuesto B2B - Frumix', ?, ?, ?, ?, 'Reservado / En Espera', ?)
-                    """, (nro_presupuesto_manual, cliente_manual, sucursal_manual, st.session_state.rol, comercial_manual, "Cliente Final", str(fecha_presupuesto), monto_total_ped, costo_total_ped, ganancia_ped, json.dumps(st.session_state.carrito_pedido)))
+                    """, (nro_presupuesto_manual, cliente_manual, sucursal_manual, st.session_state.rol, comercial_manual, "Cliente Final", fecha_p_fmt, monto_total_ped, costo_total_ped, ganancia_ped, json.dumps(st.session_state.carrito_pedido)))
 
                     for item in st.session_state.carrito_pedido:
                         cursor.execute("SELECT stock_cajas FROM inventario WHERE id = ?", (item["inventario_id"],))
@@ -587,7 +602,7 @@ elif menu.startswith("3."):
                         cursor.execute("""
                             INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
                             VALUES (?, ?, ?, 'RESERVA SALIDA', ?, ?, ?, ?)
-                        """, (item["lote"], item["producto"], item["calibre"], item["cajas"], f"Reserva Pedido #{nro_presupuesto_manual}", str(get_today_vz()), st.session_state.rol))
+                        """, (item["lote"], item["producto"], item["calibre"], item["cajas"], f"Reserva Pedido #{nro_presupuesto_manual}", format_date_str(get_today_vz()), st.session_state.rol))
 
                     conn.commit()
                     conn.close()
@@ -597,6 +612,7 @@ elif menu.startswith("3."):
                     
                     logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
                     vencimiento_calc = fecha_presupuesto + timedelta(days=int(dias_credito_manual))
+                    venc_fmt = format_date_str(vencimiento_calc)
                     
                     html_presupuesto = f"""
                     <html>
@@ -622,7 +638,7 @@ elif menu.startswith("3."):
                                 <div style="font-size: 15px; color: #333; margin-top: 4px; font-weight: bold;">RIF: J-40985632-1 | Caracas, Venezuela</div>
                             </div>
                             <div style="text-align: right; font-size: 12px;">
-                                <strong>Documento generado<br>(hora de Caracas):</strong><br>{get_now_vz().strftime('%Y-%m-%d %H:%M:%S')}
+                                <strong>Documento generado<br>(hora de Caracas):</strong><br>{get_now_vz().strftime('%d/%m/%Y %H:%M:%S')}
                             </div>
                         </div>
                         
@@ -634,8 +650,8 @@ elif menu.startswith("3."):
                             </div>
                             <div style="text-align: right;">
                                 <strong>Comercial:</strong> {comercial_manual}<br>
-                                <strong>Fecha del presupuesto:</strong> {fecha_presupuesto}<br>
-                                <strong>Vencimiento:</strong> {vencimiento_calc}
+                                <strong>Fecha del presupuesto:</strong> {fecha_p_fmt}<br>
+                                <strong>Vencimiento:</strong> {venc_fmt}
                             </div>
                         </div>
 
@@ -675,7 +691,7 @@ elif menu.startswith("3."):
         st.warning("No hay existencias disponibles en cámaras de frío.")
 
 # ---------------------------------------------------------
-# 4. COTIZADOR PRO (HISTORIAL POR CLIENTE, EDICIÓN Y CALIBRES)
+# 4. COTIZADOR PRO (HISTORIAL POR CLIENTE, EDICIÓN Y CALIBRES - FORMATO DD/MM/AAAA)
 # ---------------------------------------------------------
 elif menu.startswith("4."):
     st.title("📄 Cotizador B2B Profesional - Historial y Gestión por Cliente")
@@ -778,7 +794,10 @@ elif menu.startswith("4."):
         df_editor_v = df_cot_items[["id", "orden", "codigo", "descripcion", "calibre_sugerido", "empaque_kg", "precio_caja"]].sort_values(by="orden").copy()
         df_editor_v.columns = ["ID", "ORDEN", "CÓDIGO", "DESCRIPCIÓN", "CALIBRE A MOSTRAR", "EMPAQUE/KG", "PRECIO CAJA ($)"]
 
-        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra_v40", num_rows="dynamic")
+        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra_v41", num_rows="dynamic")
+
+        fecha_cot_fmt = format_date_str(get_today_vz())
+        validez_fmt = format_date_str(vig_sel)
 
         c_bt1, c_bt2 = st.columns(2)
         with c_bt1:
@@ -787,7 +806,6 @@ elif menu.startswith("4."):
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
                     
-                    # Guardamos la tabla maestra actual
                     for _, r in df_editado_venta.iterrows():
                         cursor.execute("""
                             UPDATE cotizador_items 
@@ -795,12 +813,11 @@ elif menu.startswith("4."):
                             WHERE id = ?
                         """, (int(r["ORDEN"]), str(r["CÓDIGO"]), str(r["DESCRIPCIÓN"]).upper(), str(r["CALIBRE A MOSTRAR"]), float(r["EMPAQUE/KG"]), float(r["PRECIO CAJA ($)"]), int(r["ID"])))
 
-                    # Guardamos el respaldo histórico de esta cotización específica para el cliente
                     detalle_snapshot = df_editado_venta.to_dict(orient="records")
                     cursor.execute("""
                         INSERT INTO cotizaciones_guardadas (nro_cotizacion, cliente, fecha_cotizacion, validez, detalle_json)
                         VALUES (?, ?, ?, ?, ?)
-                    """, (nro_cot_input.upper(), dest_sel, str(get_today_vz()), str(vig_sel), json.dumps(detalle_snapshot)))
+                    """, (nro_cot_input.upper(), dest_sel, fecha_cot_fmt, validez_fmt, json.dumps(detalle_snapshot)))
 
                     conn.commit()
                     conn.close()
@@ -810,7 +827,6 @@ elif menu.startswith("4."):
                     st.error(f"Error al guardar: {e}")
 
         with c_bt2:
-            # Botón de Descarga HTML directa
             if st.button("📥 Generar Documento HTML de la Cotización"):
                 logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
                 html_doc = f"""
@@ -840,7 +856,7 @@ elif menu.startswith("4."):
                         </div>
                         <div style="text-align: right; font-size: 12px;">
                             <strong>Cotización:</strong> {nro_cot_input}<br>
-                            <strong>Fecha:</strong> {get_today_vz()}<br>
+                            <strong>Fecha:</strong> {fecha_cot_fmt}<br>
                             <strong>Destinatario:</strong> {dest_sel}
                         </div>
                     </div>
@@ -868,7 +884,7 @@ elif menu.startswith("4."):
                 html_doc += f"""
                     </table>
                     <br>
-                    <p><strong>Condiciones Comerciales:</strong> Sujeto a disponibilidad en cámaras de frío. Validez de precios hasta {vig_sel}.</p>
+                    <p><strong>Condiciones Comerciales:</strong> Sujeto a disponibilidad en cámaras de frío. Validez de precios hasta {validez_fmt}.</p>
                     
                     <div class="signature-container">
                         <div class="signature">
@@ -897,7 +913,7 @@ elif menu.startswith("4."):
             id_cot_sel = st.selectbox("Seleccione ID de la Cotización Guardada:", df_cot_guardadas["id"].tolist(), key="sel_hist_cot")
             row_cot_h = df_cot_guardadas[df_cot_guardadas["id"] == id_cot_sel].iloc[0]
             
-            st.info(f"Mostrando cotización **{row_cot_h['nro_cotizacion']}** para el cliente **{row_cot_h['cliente']}** (Fecha: {row_cot_h['fecha_cotizacion']})")
+            st.info(f"Mostrando cotización **{row_cot_h['nro_cotizacion']}** para el cliente **{row_cot_h['cliente']}** (Fecha: {format_date_str(row_cot_h['fecha_cotizacion'])})")
             
             detalle_cargado = json.loads(row_cot_h["detalle_json"])
             df_hist_view = pd.DataFrame(detalle_cargado)
@@ -934,7 +950,7 @@ elif menu.startswith("4."):
                             </div>
                             <div style="text-align: right; font-size: 12px;">
                                 <strong>Cotización:</strong> {row_cot_h['nro_cotizacion']}<br>
-                                <strong>Fecha:</strong> {row_cot_h['fecha_cotizacion']}<br>
+                                <strong>Fecha:</strong> {format_date_str(row_cot_h['fecha_cotizacion'])}<br>
                                 <strong>Destinatario:</strong> {row_cot_h['cliente']}
                             </div>
                         </div>
@@ -961,7 +977,7 @@ elif menu.startswith("4."):
                     html_doc_h += f"""
                         </table>
                         <br>
-                        <p><strong>Condiciones Comerciales:</strong> Sujeto a disponibilidad en cámaras de frío. Validez hasta {row_cot_h['validez']}.</p>
+                        <p><strong>Condiciones Comerciales:</strong> Sujeto a disponibilidad en cámaras de frío. Validez hasta {format_date_str(row_cot_h['validez'])}.</p>
                         <div class="signature-container">
                             <div class="signature">
                                 Atentamente;<br>
@@ -990,7 +1006,7 @@ elif menu.startswith("4."):
                     st.success("¡Cotización eliminada del historial!")
                     st.rerun()
         else:
-            st.info("No hay cotizaciones guardadas en el historial todavía. Crea una y guárdala desde la pestaña 'Editor y Creador de Cotización'.")
+            st.info("No hay cotizaciones guardadas en el historial todavía.")
 
 # ---------------------------------------------------------
 # 5. REGISTRO MANUAL DE FACTURACIÓN & CXC
@@ -1015,12 +1031,15 @@ elif menu.startswith("5."):
         if st.form_submit_button("💾 Registrar Factura y Activar Cuenta por Cobrar"):
             if nro_factura_m:
                 fecha_venc_calc = fecha_em_m + timedelta(days=int(dias_venc_m))
+                fecha_em_fmt = format_date_str(fecha_em_m)
+                fecha_venc_fmt = format_date_str(fecha_venc_calc)
+
                 conn = sqlite3.connect(DB_NAME)
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO cobranza (nro_factura, cliente, fecha_emision, fecha_vencimiento, monto_factura, monto_pagado, estatus_pago)
                     VALUES (?, ?, ?, ?, ?, 0.0, 'Pendiente')
-                """, (nro_factura_m.upper(), cliente_fac_m, str(fecha_em_m), str(fecha_venc_calc), monto_fac_m))
+                """, (nro_factura_m.upper(), cliente_fac_m, fecha_em_fmt, fecha_venc_fmt, monto_fac_m))
                 conn.commit()
                 conn.close()
 
@@ -1052,8 +1071,8 @@ elif menu.startswith("5."):
                             <div style="font-size: 15px; color: #333; margin-top: 4px; font-weight: bold;">RIF: J-40985632-1 | Caracas, Venezuela</div>
                         </div>
                         <div style="text-align: right; font-size: 12px;">
-                            <strong>Fecha de Emisión:</strong> {fecha_em_m}<br>
-                            <strong>Vencimiento:</strong> {fecha_venc_calc}
+                            <strong>Fecha de Emisión:</strong> {fecha_em_fmt}<br>
+                            <strong>Vencimiento:</strong> {fecha_venc_fmt}
                         </div>
                     </div>
                     
@@ -1173,7 +1192,7 @@ elif menu.startswith("6."):
             if st.form_submit_button("Guardar Nuevo Producto"):
                 if np_cod and np_desc:
                     p_kg = round(np_pre / np_emp, 2) if np_emp > 0 else 0.0
-                    mrg = round(((np_pre - np_cos) / np_pre * 100), 1) if np_pre > 0 else 0.0
+                    mrg = round(((np_pre - np_cos) / np_pre * 100), 1) if np_emp > 0 else 0.0
                     
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
@@ -1282,7 +1301,7 @@ elif menu.startswith("8."):
                     cursor.execute("""
                         INSERT INTO clientes (matriz, sucursal, segmento, tarifa, dupla, telefono, contacto, limite_credito_dias, limite_credito_dolares, ultimo_pedido)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (nc_mat.upper(), nc_suc.upper(), nc_seg, nc_tarifa, nc_dupla, nc_tel, nc_cont, int(nc_dias), nc_monto, str(get_today_vz())))
+                    """, (nc_mat.upper(), nc_suc.upper(), nc_seg, nc_tarifa, nc_dupla, nc_tel, nc_cont, int(nc_dias), nc_monto, format_date_str(get_today_vz())))
                     conn.commit()
                     conn.close()
                     
@@ -1484,14 +1503,16 @@ elif menu.startswith("15."):
                     cursor.execute("BEGIN TRANSACTION;")
                     
                     perdida = cajas_m * row_m["costo_unitario_caja"]
+                    fecha_m_fmt = format_date_str(get_today_vz())
+
                     cursor.execute("INSERT INTO mermas (lote, producto, calibre, cantidad_perdida, costo_unitario, perdida_monetaria, motivo, fecha_merma) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                                   (row_m["lote"], row_m["producto"], row_m["calibre"], cajas_m, row_m["costo_unitario_caja"], perdida, motivo_m, str(get_today_vz())))
+                                   (row_m["lote"], row_m["producto"], row_m["calibre"], cajas_m, row_m["costo_unitario_caja"], perdida, motivo_m, fecha_m_fmt))
                     
                     nuevo_stk = max(0.0, row_m["stock_cajas"] - cajas_m)
                     cursor.execute("UPDATE inventario SET stock_cajas = ? WHERE id = ?", (nuevo_stk, id_inv_m))
                     
                     cursor.execute("INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable) VALUES (?, ?, ?, 'SALIDA MERMA', ?, ?, ?, ?)",
-                                   (row_m["lote"], row_m["producto"], row_m["calibre"], cajas_m, f"Merma: {motivo_m}", str(get_today_vz()), st.session_state.rol))
+                                   (row_m["lote"], row_m["producto"], row_m["calibre"], cajas_m, f"Merma: {motivo_m}", fecha_m_fmt, st.session_state.rol))
                     
                     conn.commit()
                     conn.close()
@@ -1534,16 +1555,18 @@ elif menu.startswith("16."):
                 if st.form_submit_button("💾 Procesar Devolución"):
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
+                    fecha_d_fmt = format_date_str(get_today_vz())
+
                     cursor.execute("""
                         INSERT INTO devoluciones (nro_pedido, cliente, sucursal, producto, calibre, cantidad_devuelta, motivo_devolucion, destino_accion, fecha_devolucion)
                         VALUES ('DEV-MANUAL', ?, 'Principal', ?, ?, ?, ?, ?, ?)
-                    """, (mat_dev, prod_dev.upper(), cal_dev.upper(), cant_dev, motivo_dev, destino_dev, str(get_today_vz())))
+                    """, (mat_dev, prod_dev.upper(), cal_dev.upper(), cant_dev, motivo_dev, destino_dev, fecha_d_fmt))
 
                     if "Reingresar" in destino_dev:
                         cursor.execute("""
                             INSERT INTO inventario (lote, producto, calibre, stock_cajas, costo_unitario_caja, fecha_ingreso)
                             VALUES ('LOTE-DEV', ?, ?, ?, 45.0, ?)
-                        """, (prod_dev.upper(), cal_dev.upper(), cant_dev, str(get_today_vz())))
+                        """, (prod_dev.upper(), cal_dev.upper(), cant_dev, fecha_d_fmt))
                     
                     conn.commit()
                     conn.close()
@@ -1628,12 +1651,12 @@ elif menu.startswith("17."):
                                     cursor.execute("""
                                         INSERT INTO inventario (lote, producto, calibre, stock_cajas, costo_unitario_caja, fecha_ingreso)
                                         VALUES (?, ?, ?, ?, ?, ?)
-                                    """, (item["lote"], item["producto"], item["calibre"], cajas_dev, item["costo_unitario"], str(get_today_vz())))
+                                    """, (item["lote"], item["producto"], item["calibre"], cajas_dev, item["costo_unitario"], format_date_str(get_today_vz())))
 
                                 cursor.execute("""
                                     INSERT INTO movimientos_inventario (lote, producto, calibre, tipo_movimiento, cantidad, motivo, fecha_movimiento, responsable)
                                     VALUES (?, ?, ?, 'REINGRESO ANULACIÓN', ?, ?, ?, ?)
-                                """, (item["lote"], item["producto"], item["calibre"], cajas_dev, f"Anulación Pedido {nro_ped_del}", str(get_today_vz()), st.session_state.rol))
+                                """, (item["lote"], item["producto"], item["calibre"], cajas_dev, f"Anulación Pedido {nro_ped_del}", format_date_str(get_today_vz()), st.session_state.rol))
 
                         cursor.execute("DELETE FROM pedidos WHERE id = ?", (int(pedido_id_del),))
                         conn.commit()
