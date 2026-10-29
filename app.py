@@ -29,7 +29,7 @@ def format_date_str(fecha_obj):
     return str(fecha_obj)
 
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B Enterprise Elite V42",
+    page_title="Frumix C.A. - ERP B2B Enterprise Elite V44",
     page_icon="🍓",
     layout="wide",
 )
@@ -45,9 +45,9 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# RUTA PERSISTENTE DE BASE DE DATOS (GARANTIZA QUE NO SE BORRE NADA)
+# RUTA PERSISTENTE DE BASE DE DATOS (GARANTIZA PERMANENCIA TOTAL)
 # ---------------------------------------------------------
-DB_FILE_NAME = "frumix_enterprise_elite_v42.db"
+DB_FILE_NAME = "frumix_enterprise_elite_v44.db"
 
 def get_db_path():
     base_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
@@ -55,9 +55,11 @@ def get_db_path():
     if not os.path.exists(data_dir):
         try:
             os.makedirs(data_dir, exist_ok=True)
-            return os.path.join(data_dir, DB_FILE_NAME)
         except:
             pass
+    # Si la carpeta data existe, guardamos allí; si no, en el directorio principal
+    if os.path.exists(data_dir):
+        return os.path.join(data_dir, DB_FILE_NAME)
     return os.path.join(base_dir, DB_FILE_NAME)
 
 DB_NAME = get_db_path()
@@ -315,7 +317,7 @@ modulos_disponibles = [
     "1. 📊 Dashboard Gerencial, P&L & Auditoría",
     "2. 📦 Inventario Flexible (Tabla 100% Editable)",
     "3. 🛒 Generador de Pedidos y Presupuestos (Manual y Formato Frumix)",
-    "4. 📄 Cotizador Pro (Sin Código, Historial por Cliente y Calibres)",
+    "4. 📄 Cotizador Pro (Historial, Edición por Cliente y Calibres)",
     "5. 📋 Registro Manual de Facturación & CxC Independiente",
     "6. 🍓 Catálogo de Productos (Calibre Opcional)",
     "7. 🔄 Kardex & Trazabilidad de Lotes (FIFO)",
@@ -331,7 +333,7 @@ modulos_disponibles = [
     "17. 📋 Historial Completo de Pedidos & Edición/Eliminación",
 ]
 
-menu = st.sidebar.radio("Módulos ERP Enterprise Elite V42:", modulos_disponibles)
+menu = st.sidebar.radio("Módulos ERP Enterprise Elite V44:", modulos_disponibles)
 
 # ---------------------------------------------------------
 # 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
@@ -391,7 +393,7 @@ elif menu.startswith("2."):
             df_editado_inv = st.data_editor(
                 df_inv,
                 use_container_width=True,
-                key="editor_inventario_general_v42",
+                key="editor_inventario_general_v44",
                 num_rows="dynamic"
             )
 
@@ -689,11 +691,11 @@ elif menu.startswith("3."):
         st.warning("No hay existencias disponibles en cámaras de frío.")
 
 # ---------------------------------------------------------
-# 4. COTIZADOR PRO (SIN CÓDIGO, HISTORIAL POR CLIENTE, EDICIÓN Y CALIBRES)
+# 4. COTIZADOR PRO (HISTORIAL, EDICIÓN POR CLIENTE Y CALIBRES)
 # ---------------------------------------------------------
 elif menu.startswith("4."):
-    st.title("📄 Cotizador B2B Profesional - Historial y Gestión por Cliente")
-    st.write("Crea, edita, guarda y consulta cotizaciones específicas para cada cliente de forma permanente (Sin columna de código).")
+    st.title("📄 Cotizador B2B Profesional - Historial y Edición de Cotizaciones")
+    st.write("Crea, guarda, consulta y **edita fácilmente** cotizaciones anteriores por cliente.")
 
     conn = sqlite3.connect(DB_NAME)
     df_cot_items = pd.read_sql("SELECT * FROM cotizador_items", conn) if "cotizador_items" in [row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()] else pd.DataFrame()
@@ -751,7 +753,7 @@ elif menu.startswith("4."):
         df_cot_items = pd.read_sql("SELECT * FROM cotizador_items", conn)
         conn.close()
 
-    tab_cot_gen, tab_cot_hist, tab_cot_dest = st.tabs(["📄 Editor y Creador de Cotización", "📂 Historial de Cotizaciones Guardadas", "👥 Gestionar Destinatarios"])
+    tab_cot_gen, tab_cot_hist, tab_cot_dest = st.tabs(["📄 Nueva Cotización / Editor", "📂 Historial y Edición de Cotizaciones Guardadas", "👥 Gestionar Destinatarios"])
 
     with tab_cot_dest:
         with st.form("form_add_cot_cli"):
@@ -775,7 +777,7 @@ elif menu.startswith("4."):
         lista_dest_cot = ["Cliente General / Mostrador"]
 
     with tab_cot_gen:
-        st.subheader("📝 Configuración de la Cotización Actual")
+        st.subheader("📝 Configuración de la Cotización")
         c_cg1, c_cg2, c_cg3 = st.columns(3)
         with c_cg1:
             nro_cot_input = st.text_input("Número de Cotización", value=f"COT-{get_now_vz().strftime('%Y%m%d')}-01")
@@ -785,13 +787,13 @@ elif menu.startswith("4."):
             vig_sel = st.date_input("Validez de la cotización:", value=get_today_vz() + timedelta(days=7))
 
         st.markdown("---")
-        st.subheader("📋 Tabla de Precios, Calibres & Edición (Sin Código)")
-        st.info("💡 Edita la descripción, calibres sugeridos o precios. Al hacer clic en **Guardar Cotización en el Sistema**, quedará almacenada en el historial.")
+        st.subheader("📋 Tabla de Precios, Calibres & Edición")
+        st.info("💡 Edita los valores directamente. Haz clic en **Guardar Cotización en el Sistema** para conservarla permanentemente.")
 
         df_editor_v = df_cot_items[["id", "orden", "descripcion", "calibre_sugerido", "empaque_kg", "precio_caja"]].sort_values(by="orden").copy()
         df_editor_v.columns = ["ID", "ORDEN", "DESCRIPCIÓN", "CALIBRE A MOSTRAR", "EMPAQUE/KG", "PRECIO CAJA ($)"]
 
-        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra_v42", num_rows="dynamic")
+        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra_v44", num_rows="dynamic")
 
         fecha_cot_fmt = format_date_str(get_today_vz())
         validez_fmt = format_date_str(vig_sel)
@@ -818,7 +820,7 @@ elif menu.startswith("4."):
 
                     conn.commit()
                     conn.close()
-                    st.success(f"¡Cotización {nro_cot_input} guardada exitosamente en el historial del cliente!")
+                    st.success(f"¡Cotización {nro_cot_input} guardada con éxito en el historial del cliente!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error al guardar: {e}")
@@ -859,8 +861,7 @@ elif menu.startswith("4."):
                     </div>
                     
                     <div class="intro-text">
-                        A continuación encontrará nuestra lista oficial de precios y los calibres disponibles actualmente en cámaras de frío.<br>
-                        Nuestra alianza con los mejores productos de frutas frescas a nivel mundial garantiza la calidad y buen servicio que nos caracteriza.
+                        A continuación encontrará nuestra lista oficial de precios y los calibres disponibles actualmente en cámaras de frío.
                     </div>
 
                     <h3>Cotización Comercial Oficial & Calibres</h3>
@@ -881,7 +882,6 @@ elif menu.startswith("4."):
                     </table>
                     <br>
                     <p><strong>Condiciones Comerciales:</strong> Sujeto a disponibilidad en cámaras de frío. Validez de precios hasta {validez_fmt}.</p>
-                    
                     <div class="signature-container">
                         <div class="signature">
                             Atentamente;<br>
@@ -900,24 +900,39 @@ elif menu.startswith("4."):
                 )
 
     with tab_cot_hist:
-        st.subheader("📂 Historial de Cotizaciones Guardadas por Cliente")
+        st.subheader("📂 Historial y Edición de Cotizaciones Guardadas")
         if not df_cot_guardadas.empty:
             st.dataframe(df_cot_guardadas[["id", "nro_cotizacion", "cliente", "fecha_cotizacion", "validez"]], use_container_width=True)
             
             st.markdown("---")
-            st.subheader("🔍 Consultar, Descargar o Eliminar Cotización Guardada")
-            id_cot_sel = st.selectbox("Seleccione ID de la Cotización Guardada:", df_cot_guardadas["id"].tolist(), key="sel_hist_cot")
+            st.subheader("✏️ Consultar, Editar o Eliminar Cotización Guardada")
+            id_cot_sel = st.selectbox("Seleccione ID de la Cotización a Gestionar:", df_cot_guardadas["id"].tolist(), key="sel_hist_cot_edit")
             row_cot_h = df_cot_guardadas[df_cot_guardadas["id"] == id_cot_sel].iloc[0]
             
-            st.info(f"Mostrando cotización **{row_cot_h['nro_cotizacion']}** para el cliente **{row_cot_h['cliente']}** (Fecha: {format_date_str(row_cot_h['fecha_cotizacion'])})")
+            st.info(f"Editando cotización **{row_cot_h['nro_cotizacion']}** para **{row_cot_h['cliente']}**")
             
             detalle_cargado = json.loads(row_cot_h["detalle_json"])
-            df_hist_view = pd.DataFrame(detalle_cargado)
-            st.dataframe(df_hist_view, use_container_width=True)
+            df_hist_editable = pd.DataFrame(detalle_cargado)
+            
+            df_hist_mod = st.data_editor(df_hist_editable, use_container_width=True, key=f"editor_hist_cot_{id_cot_sel}")
 
-            c_h1, c_h2 = st.columns(2)
-            with c_h1:
-                if st.button("📥 Volver a Descargar esta Cotización en HTML"):
+            c_he1, c_he2, c_he3 = st.columns(3)
+            with c_he1:
+                if st.button("💾 Actualizar / Guardar Cambios de esta Cotización"):
+                    try:
+                        conn = sqlite3.connect(DB_NAME)
+                        cursor = conn.cursor()
+                        nuevo_json_str = json.dumps(df_hist_mod.to_dict(orient="records"))
+                        cursor.execute("UPDATE cotizaciones_guardadas SET detalle_json = ? WHERE id = ?", (nuevo_json_str, int(id_cot_sel)))
+                        conn.commit()
+                        conn.close()
+                        st.success("¡Cotización actualizada con éxito en el historial!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al actualizar: {e}")
+
+            with c_he2:
+                if st.button("📥 Descargar esta Cotización en HTML"):
                     logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
                     html_doc_h = f"""
                     <html>
@@ -965,7 +980,7 @@ elif menu.startswith("4."):
                                 <th>Precio $ X Kilo</th>
                             </tr>
                     """
-                    for r in detalle_cargado:
+                    for r in df_hist_mod.to_dict(orient="records"):
                         p_kg = round(r['PRECIO CAJA ($)'] / r['EMPAQUE/KG'], 2) if r['EMPAQUE/KG'] > 0 else 0.0
                         html_doc_h += f"<tr><td>{r['DESCRIPCIÓN']}</td><td>{r['EMPAQUE/KG']}</td><td><strong>{r['CALIBRE A MOSTRAR']}</strong></td><td>${r['PRECIO CAJA ($)']:.2f}</td><td>${p_kg:.2f}</td></tr>"
                         
@@ -984,15 +999,15 @@ elif menu.startswith("4."):
                     </html>
                     """
                     st.download_button(
-                        label="📥 Descargar HTML Histórico",
+                        label="📥 Descargar HTML Actualizado",
                         data=html_doc_h,
                         file_name=f"Cotizacion_{row_cot_h['nro_cotizacion']}.html",
                         mime="text/html",
-                        key="btn_dl_hist"
+                        key="btn_dl_hist_mod"
                     )
 
-            with c_h2:
-                if st.button("🗑️ Eliminar esta Cotización Guardada"):
+            with c_he3:
+                if st.button("🗑️ Eliminar Cotización Guardada"):
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
                     cursor.execute("DELETE FROM cotizaciones_guardadas WHERE id = ?", (int(id_cot_sel),))
@@ -1187,7 +1202,7 @@ elif menu.startswith("6."):
             if st.form_submit_button("Guardar Nuevo Producto"):
                 if np_cod and np_desc:
                     p_kg = round(np_pre / np_emp, 2) if np_emp > 0 else 0.0
-                    mrg = round(((np_pre - np_cos) / np_pre * 100), 1) if np_pre > 0 else 0.0
+                    mrg = round(((np_pre - np_cos) / np_pre * 100), 1) if np_emp > 0 else 0.0
                     
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
