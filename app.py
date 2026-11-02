@@ -29,7 +29,7 @@ def format_date_str(fecha_obj):
     return str(fecha_obj)
 
 st.set_page_config(
-    page_title="Frumix C.A. - ERP B2B Enterprise Elite V44",
+    page_title="Frumix C.A. - ERP B2B Enterprise Elite V47",
     page_icon="🍓",
     layout="wide",
 )
@@ -45,9 +45,9 @@ def keep_alive():
 threading.Thread(target=keep_alive, daemon=True).start()
 
 # ---------------------------------------------------------
-# RUTA PERSISTENTE DE BASE DE DATOS (GARANTIZA PERMANENCIA TOTAL)
+# RUTA PERSISTENTE DE BASE DE DATOS
 # ---------------------------------------------------------
-DB_FILE_NAME = "frumix_enterprise_elite_v44.db"
+DB_FILE_NAME = "frumix_enterprise_elite_v47.db"
 
 def get_db_path():
     base_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
@@ -57,7 +57,6 @@ def get_db_path():
             os.makedirs(data_dir, exist_ok=True)
         except:
             pass
-    # Si la carpeta data existe, guardamos allí; si no, en el directorio principal
     if os.path.exists(data_dir):
         return os.path.join(data_dir, DB_FILE_NAME)
     return os.path.join(base_dir, DB_FILE_NAME)
@@ -333,7 +332,7 @@ modulos_disponibles = [
     "17. 📋 Historial Completo de Pedidos & Edición/Eliminación",
 ]
 
-menu = st.sidebar.radio("Módulos ERP Enterprise Elite V44:", modulos_disponibles)
+menu = st.sidebar.radio("Módulos ERP Enterprise Elite V47:", modulos_disponibles)
 
 # ---------------------------------------------------------
 # 1. DASHBOARD GERENCIAL, P&L & AUDITORÍA
@@ -393,7 +392,7 @@ elif menu.startswith("2."):
             df_editado_inv = st.data_editor(
                 df_inv,
                 use_container_width=True,
-                key="editor_inventario_general_v44",
+                key="editor_inventario_general_v47",
                 num_rows="dynamic"
             )
 
@@ -448,14 +447,14 @@ elif menu.startswith("2."):
                     fruta_sel = st.selectbox("Seleccionar Fruta", lista_frutas_cat)
                     lote_num = st.text_input("Número de Lote", value=f"LOTE-{get_now_vz().strftime('%Y%m%d')}")
                     
-                    row_prod_info = df_cat[df_cat["descripcion"] == fruta_sel].iloc[0]
-                    maneja_calibre = row_prod_info["maneja_calibre"]
+                    fruta_lower = fruta_sel.lower()
+                    requiere_calibre = any(term in fruta_lower for term in ["manzana", "pera", "uva", "ciruela", "kiwi", "durazno", "nectarina"])
                     
-                    if maneja_calibre == "Sí":
-                        calibre_ingresado = st.text_input("Calibre Específico (Ej. 80/88, Extra, etc.)")
+                    if requiere_calibre:
+                        calibre_ingresado = st.text_input("Calibre Específico (Ej. 80/88 para Manzana, 100 para Pera, Jumbo para Uva)", value="80/88")
+                        st.info(f"✨ Calibre habilitado para: {fruta_sel}")
                     else:
-                        calibre_ingresado = "N/A (Sin calibre)"
-                        st.info("Este producto no maneja calibre según su catálogo.")
+                        calibre_ingresado = st.text_input("Calibre o Presentación (Opcional)", value="N/A")
                 with c2:
                     cajas_ingreso = st.number_input("Cantidad de Cajas", min_value=1.0, value=100.0)
                     costo_caja = st.number_input("Costo Unitario por Caja ($)", min_value=0.0, value=50.0)
@@ -481,8 +480,8 @@ elif menu.startswith("2."):
                         conn.commit()
                         conn.close()
                         
-                        registrar_auditoria(st.session_state.usuario, st.session_state.rol, "INGRESO INVENTARIO", f"Carga permanente de {cajas_ingreso} cajas de {fruta_sel} Lote {lote_num}")
-                        st.success(f"¡Lote cargado y guardado con éxito!")
+                        registrar_auditoria(st.session_state.usuario, st.session_state.rol, "INGRESO INVENTARIO", f"Carga permanente de {cajas_ingreso} cajas de {fruta_sel} ({calibre_clean}) Lote {lote_num}")
+                        st.success(f"¡Lote de {fruta_sel} con calibre '{calibre_clean}' cargado y guardado con éxito!")
                         st.rerun()
 
     with tab_inv3:
@@ -609,77 +608,6 @@ elif menu.startswith("3."):
 
                     registrar_auditoria(st.session_state.usuario, st.session_state.rol, "REGISTRO PEDIDO", f"Presupuesto #{nro_presupuesto_manual} creado para {cliente_manual} por ${monto_total_ped:,.2f}")
                     st.success(f"¡Presupuesto #{nro_presupuesto_manual} registrado con éxito y stock descontado!")
-                    
-                    logo_url = "https://raw.githubusercontent.com/vcaro2824-del/FrumixCRM/main/IMG-20261016-WA0072~3.jpg"
-                    vencimiento_calc = fecha_presupuesto + timedelta(days=int(dias_credito_manual))
-                    venc_fmt = format_date_str(vencimiento_calc)
-                    
-                    html_presupuesto = f"""
-                    <html>
-                    <head>
-                        <meta charset="utf-8">
-                        <title>Presupuesto #{nro_presupuesto_manual} - Frumix C.A.</title>
-                        <style>
-                            body {{ font-family: Arial, sans-serif; font-size: 13px; margin: 30px; color: #111; text-align: left; }}
-                            .header {{ display: flex; justify-content: space-between; border-bottom: 3px solid #6B8E23; padding-bottom: 15px; align-items: center; text-align: left; }}
-                            .logo {{ max-height: 75px; width: auto; }}
-                            .info-box {{ margin-top: 20px; display: flex; justify-content: space-between; line-height: 1.5; text-align: left; }}
-                            h2 {{ color: #222; margin-top: 25px; text-align: left; }}
-                            table {{ width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; }}
-                            th, td {{ border: 1px solid #bbb; padding: 10px 12px; text-align: left; font-family: Arial, sans-serif; }}
-                            th {{ background-color: #f2f2f2; font-weight: bold; text-align: left; }}
-                            .footer-cond {{ margin-top: 30px; font-weight: bold; font-size: 12px; text-align: left; }}
-                        </style>
-                    </head>
-                    <body>
-                        <div class="header">
-                            <div>
-                                <img src="{logo_url}" class="logo" alt="Logo Frumix">
-                                <div style="font-size: 15px; color: #333; margin-top: 4px; font-weight: bold;">RIF: J-40985632-1 | Caracas, Venezuela</div>
-                            </div>
-                            <div style="text-align: right; font-size: 12px;">
-                                <strong>Documento generado<br>(hora de Caracas):</strong><br>{get_now_vz().strftime('%d/%m/%Y %H:%M:%S')}
-                            </div>
-                        </div>
-                        
-                        <div class="info-box">
-                            <div>
-                                <strong>{cliente_manual}</strong><br>
-                                {sucursal_manual}<br>
-                                Venezuela<br>
-                            </div>
-                            <div style="text-align: right;">
-                                <strong>Comercial:</strong> {comercial_manual}<br>
-                                <strong>Fecha del presupuesto:</strong> {fecha_p_fmt}<br>
-                                <strong>Vencimiento:</strong> {venc_fmt}
-                            </div>
-                        </div>
-
-                        <h2>Presupuesto # {nro_presupuesto_manual}</h2>
-                        <table>
-                            <tr>
-                                <th>Descripción</th>
-                                <th style="text-align: right;">Cantidad</th>
-                            </tr>
-                    """
-                    for item in st.session_state.carrito_pedido:
-                        html_presupuesto += f"<tr><td>[{item['lote']}] {item['producto']} ({item['calibre']})</td><td style='text-align: right;'>{item['cajas']:.2f} CAJA</td></tr>"
-                    
-                    html_presupuesto += f"""
-                        </table>
-                        <div class="footer-cond">
-                            <p>Condiciones de pago: {dias_credito_manual} días</p>
-                            <p>Monto Total: ${monto_total_ped:,.2f} USD</p>
-                        </div>
-                    </body>
-                    </html>
-                    """
-                    st.download_button(
-                        label="📥 Descargar Documento Oficial / Presupuesto HTML",
-                        data=html_presupuesto,
-                        file_name=f"Presupuesto_{nro_presupuesto_manual}.html",
-                        mime="text/html"
-                    )
                     st.session_state.carrito_pedido = []
 
                 except Exception as e:
@@ -793,7 +721,7 @@ elif menu.startswith("4."):
         df_editor_v = df_cot_items[["id", "orden", "descripcion", "calibre_sugerido", "empaque_kg", "precio_caja"]].sort_values(by="orden").copy()
         df_editor_v.columns = ["ID", "ORDEN", "DESCRIPCIÓN", "CALIBRE A MOSTRAR", "EMPAQUE/KG", "PRECIO CAJA ($)"]
 
-        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra_v44", num_rows="dynamic")
+        df_editado_venta = st.data_editor(df_editor_v, use_container_width=True, key="cotizador_tabla_maestra_v47", num_rows="dynamic")
 
         fecha_cot_fmt = format_date_str(get_today_vz())
         validez_fmt = format_date_str(vig_sel)
@@ -837,7 +765,7 @@ elif menu.startswith("4."):
                         body {{ font-family: Arial, sans-serif; font-size: 12px; margin: 30px; color: #111; text-align: left; }}
                         .header {{ display: flex; justify-content: space-between; border-bottom: 3px solid #6B8E23; padding-bottom: 15px; align-items: center; text-align: left; }}
                         .logo {{ max-height: 80px; width: auto; }}
-                        .intro-text {{ margin-top: 22px; font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #222; text-align: left; }}
+                        .intro-text {{ margin-top: 22px; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #222; text-align: left; }}
                         h3 {{ font-family: Arial, sans-serif; font-size: 14px; text-align: left; margin-top: 25px; }}
                         table {{ width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; }}
                         th, td {{ border: 1px solid #bbb; padding: 10px 12px; text-align: left; font-family: Arial, sans-serif; font-size: 12px; }}
@@ -861,7 +789,7 @@ elif menu.startswith("4."):
                     </div>
                     
                     <div class="intro-text">
-                        A continuación encontrará nuestra lista oficial de precios y los calibres disponibles actualmente en cámaras de frío.
+                        A continuación encontrará nuestra lista oficial de precios y los calibres disponibles actualmente en cámaras de frío. Nuestra alianza con los mejores productos de frutas frescas a nivel mundial garantiza la calidad y buen servicio que nos caracteriza.
                     </div>
 
                     <h3>Cotización Comercial Oficial & Calibres</h3>
@@ -943,7 +871,7 @@ elif menu.startswith("4."):
                             body {{ font-family: Arial, sans-serif; font-size: 12px; margin: 30px; color: #111; text-align: left; }}
                             .header {{ display: flex; justify-content: space-between; border-bottom: 3px solid #6B8E23; padding-bottom: 15px; align-items: center; text-align: left; }}
                             .logo {{ max-height: 80px; width: auto; }}
-                            .intro-text {{ margin-top: 22px; font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #222; text-align: left; }}
+                            .intro-text {{ margin-top: 22px; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #222; text-align: left; }}
                             h3 {{ font-family: Arial, sans-serif; font-size: 14px; text-align: left; margin-top: 25px; }}
                             table {{ width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; }}
                             th, td {{ border: 1px solid #bbb; padding: 10px 12px; text-align: left; font-family: Arial, sans-serif; font-size: 12px; }}
@@ -967,7 +895,7 @@ elif menu.startswith("4."):
                         </div>
                         
                         <div class="intro-text">
-                            A continuación encontrará nuestra lista oficial de precios y los calibres disponibles actualmente en cámaras de frío.
+                            A continuación encontrará nuestra lista oficial de precios y los calibres disponibles actualmente en cámaras de frío. Nuestra alianza con los mejores productos de frutas frescas a nivel mundial garantiza la calidad y buen servicio que nos caracteriza.
                         </div>
 
                         <h3>Cotización Comercial Oficial & Calibres</h3>
@@ -1202,7 +1130,7 @@ elif menu.startswith("6."):
             if st.form_submit_button("Guardar Nuevo Producto"):
                 if np_cod and np_desc:
                     p_kg = round(np_pre / np_emp, 2) if np_emp > 0 else 0.0
-                    mrg = round(((np_pre - np_cos) / np_pre * 100), 1) if np_emp > 0 else 0.0
+                    mrg = round(((np_pre - np_cos) / np_pre * 100), 1) if np_pre > 0 else 0.0
                     
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
